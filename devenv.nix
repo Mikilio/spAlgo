@@ -1,19 +1,53 @@
-{ pkgs, ... }:
+{ pkgs, lib, config, ... }:
 
 {
   # https://devenv.sh/basics/
   env.GREET = "devenv";
 
   # https://devenv.sh/packages/
-  packages = [ pkgs.git ];
+  packages = with pkgs; [ git curl gzip ];
 
   # https://devenv.sh/scripts/
-  scripts.hello.exec = "echo hello from $GREET";
+  scripts.pull-data = {
+    exec = ''
+      if [[ ( $@ == "--help") ||  ($@ == "-h") || ($# -ne 1)]]
+      then 
+        echo "Usage: pull-data [NAME]
+
+        Choose one of:
+
+        Name | Description
+        _____|_______________________
+        USA  | Full USA 	
+        CTR  | Central USA 	
+        W 	 | Western USA 	
+        E 	 | Eastern USA 	
+        LKS  | Great Lakes 	
+        CAL  | California and Nevada 	
+        NE 	 | Northeast USA 	
+        NW 	 | Northwest USA 	
+        FLA  | Florida 	
+        COL  | Colorado 	
+        BAY  | San Francisco Bay Area 	
+        NY 	 | New York City"
+        exit 0
+      fi 
+      curl "https://www.diag.uniroma1.it/challenge9/data/USA-road-d/USA-road-d.$1.gr.gz" | gunzip > data/$1-d.gr
+      curl "https://www.diag.uniroma1.it/challenge9/data/USA-road-t/USA-road-t.$1.gr.gz" | gunzip > data/$1-t.gr
+      curl "https://www.diag.uniroma1.it/challenge9/data/USA-road-d/USA-road-d.$1.co.gz" | gunzip > data/$1.co
+    '';
+    description = "Pull graph data from https://www.diag.uniroma1.it/challenge9/download.shtml";
+  };
 
   enterShell = ''
-    hello
-    cargo --version
-  '';
+      echo
+      echo 🦾 Helper scripts you can run to make your development richer:
+      echo 
+      ${pkgs.gnused}/bin/sed -e 's| |••|g' -e 's|=| |' <<EOF | ${pkgs.util-linuxMinimal}/bin/column -t | ${pkgs.gnused}/bin/sed -e 's|^|󰮺  |' -e 's|••| |g'
+      ${lib.generators.toKeyValue {} (lib.mapAttrs (name: value: value.description) config.scripts)}
+      EOF
+      echo
+    '';
 
   # https://devenv.sh/languages/
   languages.nix.enable = true;
