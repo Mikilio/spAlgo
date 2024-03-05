@@ -8,7 +8,7 @@ use std::{
 struct Edge {
     from: u16,
     to: u16,
-    weight: u16,
+    weight: u32,
 }
 
 #[non_exhaustive]
@@ -36,7 +36,7 @@ impl FromStr for Edge {
         let weight = fields.next();
         match (from, to, weight) {
             (Some(f), Some(t), Some(w)) => {
-                match (u16::from_str(f), u16::from_str(t), u16::from_str(w)) {
+                match (u16::from_str(f), u16::from_str(t), u32::from_str(w)) {
                     (Ok(from), Ok(to), Ok(weight)) => Ok(Edge { from, to, weight }),
                     _ => Err(ParseEdgeError {
                         kind: EdgeErrorKind::InvalidValue,
