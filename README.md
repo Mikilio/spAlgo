@@ -25,7 +25,3 @@ nix-env -if https://install.devenv.sh/latest
 - `devenv up` starts processes.
 
     ❕ If you have direnv installed `devenv shell` will be called automatically
-
-## To-do
-- [] create LaTex doc
-- [] create project for this repo
