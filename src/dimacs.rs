@@ -41,7 +41,7 @@ impl From<Vertex> for usize {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Edge {
     pub from: Vertex,
     pub to: Vertex,
