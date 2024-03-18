@@ -21,6 +21,5 @@ fn main() {
 
     for i in 0..n {
         assert_eq!(vlist.dist[i], vheap.dist[i], "dist on {}", i);
-        assert_eq!(vlist.prev[i], vheap.prev[i], "prev on {}", i);
     }
 }

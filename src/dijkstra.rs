@@ -1,5 +1,5 @@
 use crate::dimacs::*;
-use std::io::prelude::*;
+use std::io::Write;
 
 pub struct VertexList {
     queue: Vec<Vertex>,
@@ -33,7 +33,8 @@ impl VertexList {
 }
 
 pub struct VertexHeap {
-    queue: Vec<Vertex>,
+    heap: Vec<Vertex>,
+    hlookup: Vec<usize>,
     pub dist: Vec<u32>,
     pub prev: Vec<Vertex>,
     seen: Vec<bool>,
@@ -42,24 +43,31 @@ pub struct VertexHeap {
 impl VertexHeap {
     pub fn new(n: usize, source: Vertex) -> Self {
         let list = VertexList::new(n, source);
+        let mut hlookup = vec![usize::MAX; n];
+        hlookup[usize::from(source)] = 0;
         Self {
-            queue: list.queue,
+            heap: list.queue,
+            hlookup,
             dist: list.dist,
             prev: list.prev,
             seen: list.seen,
         }
     }
 
-    fn bubble_up(&mut self) {
-        let mut child = self.queue.len() - 1;
-        let heap = &mut (self.queue);
+    fn bubble_up(&mut self, dirt: usize) {
+        let mut child = dirt;
+        let heap = &mut (self.heap);
 
         let mut parent;
         while child > 0 {
             parent = (child - 1) / 2;
-            if self.dist[usize::from(heap[parent])] <= self.dist[usize::from(heap[child])] {
+            let parent_v_i = usize::from(heap[parent]);
+            let child_v_i = usize::from(heap[child]);
+            if self.dist[parent_v_i] <= self.dist[child_v_i] {
                 break;
             }
+            self.hlookup[parent_v_i] = child;
+            self.hlookup[child_v_i] = parent;
             heap.swap(parent, child);
             child = parent;
         }
@@ -67,8 +75,8 @@ impl VertexHeap {
 
     fn bubble_down(&mut self) {
         let mut parent = 0;
-        let n = self.queue.len();
-        let heap = &mut (self.queue);
+        let n = self.heap.len();
+        let heap = &mut (self.heap);
 
         let mut child;
         while {
@@ -83,9 +91,13 @@ impl VertexHeap {
             };
             child < n
         } {
-            if self.dist[usize::from(heap[parent])] <= self.dist[usize::from(heap[child])] {
+            let parent_v_i = usize::from(heap[parent]);
+            let child_v_i = usize::from(heap[child]);
+            if self.dist[parent_v_i] <= self.dist[child_v_i] {
                 break;
             }
+            self.hlookup[parent_v_i] = child;
+            self.hlookup[child_v_i] = parent;
             heap.swap(parent, child);
             parent = child;
         }
@@ -137,8 +149,12 @@ impl PriorityQueue for VertexHeap {
     fn update_vertice(&mut self, v: Vertex, dist: u32, prev: Vertex) {
         self.dist[usize::from(v)] = dist;
         if self.prev[usize::from(v)] == UNDEFINED {
-            self.queue.push(v);
-            self.bubble_up();
+            self.heap.push(v);
+            let end = self.heap.len() - 1;
+            self.hlookup[usize::from(v)] = end;
+            self.bubble_up(end);
+        } else {
+            self.bubble_up(self.hlookup[usize::from(v)]);
         }
         self.prev[usize::from(v)] = prev;
     }
@@ -149,13 +165,13 @@ impl PriorityQueue for VertexHeap {
         self.seen[usize::from(v)]
     }
     fn pop_min(&mut self) -> Vertex {
-        let min = self.queue.swap_remove(0);
+        let min = self.heap.swap_remove(0);
         self.bubble_down();
         self.seen[usize::from(min)] = true;
         return min;
     }
     fn empty(&mut self) -> bool {
-        self.queue.is_empty()
+        self.heap.is_empty()
     }
 }
 pub fn dijkstra_unwrapped<I>(
@@ -204,4 +220,64 @@ where
     }
     println!("");
     return vertices;
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+    use rand::{thread_rng, Rng};
+
+    #[test]
+    fn push_pop_list() {
+        let n = 10000;
+        let mut highest_min = 0;
+        let mut vertices = VertexList::new(n, Vertex(1));
+        let mut rng = thread_rng();
+        //push
+        for i in 1..n {
+            let new_vertex = Vertex::try_from(i).unwrap();
+            vertices.update_vertice(new_vertex, rng.gen_range(1..1000000), Vertex(1))
+        }
+        //decrease_key
+        for _ in 0..n {
+            let v: Vertex = rng.gen_range(1..n).try_into().unwrap();
+            let to: Vertex = rng.gen_range(1..n).try_into().unwrap();
+            let new = vertices.get_dist(v) / 2;
+            vertices.update_vertice(v, new, to);
+        }
+        //pop
+        for _ in 0..n {
+            let popped = vertices.pop_min();
+            let value = vertices.dist[usize::from(popped)];
+            assert!(value >= highest_min);
+            highest_min = u32::max(highest_min, value);
+        }
+        assert!(vertices.empty());
+    }
+    #[test]
+    fn push_pop_heap() {
+        let n = 10000;
+        let mut highest_min = 0;
+        let mut vertices = VertexHeap::new(n, Vertex(1));
+        let mut rng = thread_rng();
+        for i in 1..n {
+            let new_vertex = Vertex::try_from(i).unwrap();
+            vertices.update_vertice(new_vertex, rng.gen_range(1..1000000), Vertex(1))
+        }
+        //decrease_key
+        for _ in 0..n {
+            let v: Vertex = rng.gen_range(1..n).try_into().unwrap();
+            let to: Vertex = rng.gen_range(1..n).try_into().unwrap();
+            let new = vertices.get_dist(v) / 2;
+            vertices.update_vertice(v, new, to);
+        }
+        for _ in 0..n {
+            let popped = vertices.pop_min();
+            let value = vertices.dist[usize::from(popped)];
+            assert!(value >= highest_min);
+            highest_min = u32::max(highest_min, value);
+        }
+        assert!(vertices.empty());
+    }
 }
