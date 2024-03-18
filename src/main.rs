@@ -4,43 +4,86 @@ use std::path::Path;
 
 pub mod dimacs;
 
-struct PriorityQueue {
+struct VertexList {
     queue: Vec<Vertex>,
     dist: Vec<u32>,
     prev: Vec<Vertex>,
 }
 
-fn pop_min(dist: &Vec<u32>, queue: &mut Vec<Vertex>) -> Vertex {
-    let i = queue
-        .iter()
-        .enumerate()
-        .min_by(|(_, &a), (_, &b)| (&dist[usize::from(a)]).cmp(&dist[usize::from(b)]))
-        .map(|(index, _)| index)
-        .unwrap();
-    return queue.swap_remove(i);
+impl VertexList {
+    fn new(n: usize, source: Vertex) -> Self {
+        let mut queue: Vec<Vertex> = Vec::with_capacity(n);
+        let mut dist: Vec<u32> = Vec::with_capacity(n);
+        let mut prev: Vec<Vertex> = Vec::with_capacity(n);
+
+        for i in 0..n {
+            let v = Vertex::try_from(i).unwrap();
+            queue.push(v);
+            dist.push(if v == source { 0 } else { u32::MAX });
+            prev.push(UNDEFINED);
+        }
+        Self { queue, dist, prev }
+    }
 }
 
-pub fn dijkstra(
-    source: Vertex,
+type VertexHeap = VertexList;
+
+trait PriorityQueue {
+    fn update_dist(&mut self, v: Vertex, new: u32);
+    fn update_prev(&mut self, v: Vertex, new: Vertex);
+    fn get_dist(&mut self, v: Vertex) -> u32;
+    fn get_prev(&mut self, v: Vertex) -> Vertex;
+    fn pop_min(&mut self) -> Vertex;
+    fn contains(&self, v: &Vertex) -> bool;
+    fn empty(&mut self) -> bool;
+}
+
+impl PriorityQueue for VertexList {
+    fn update_dist(&mut self, v: Vertex, new: u32) {
+        self.dist[usize::from(v)] = new;
+    }
+    fn update_prev(&mut self, v: Vertex, new: Vertex) {
+        self.prev[usize::from(v)] = new;
+    }
+    fn get_dist(&mut self, v: Vertex) -> u32 {
+        self.dist[usize::from(v)]
+    }
+    fn get_prev(&mut self, v: Vertex) -> Vertex {
+        self.prev[usize::from(v)]
+    }
+    fn pop_min(&mut self) -> Vertex {
+        let i = self
+            .queue
+            .iter()
+            .enumerate()
+            .min_by(|(_, &a), (_, &b)| {
+                (&(self.dist)[usize::from(a)]).cmp(&(self.dist)[usize::from(b)])
+            })
+            .map(|(index, _)| index)
+            .unwrap();
+        return self.queue.swap_remove(i);
+    }
+    fn contains(&self, v: &Vertex) -> bool {
+        self.queue.contains(v)
+    }
+    fn empty(&mut self) -> bool {
+        self.queue.is_empty()
+    }
+}
+
+fn dijkstra_unwrapped<I>(
     target: Option<Vertex>,
     n: usize,
+    mut vertices: I,
     mut edges: Vec<Edge>,
-) -> (Vec<Vertex>, Vec<u32>) {
-    let mut queue: Vec<Vertex> = Vec::with_capacity(n);
-    let mut dist: Vec<u32> = Vec::with_capacity(n);
-    let mut prev: Vec<Vertex> = Vec::with_capacity(n);
-
-    for i in 0..n {
-        let v = Vertex::try_from(i).unwrap();
-        queue.push(v);
-        dist.push(if v == source { 0 } else { u32::MAX });
-        prev.push(UNDEFINED);
-    }
-
+) -> I
+where
+    I: PriorityQueue,
+{
     let mut count = 0.0;
     let mut ratio = 0.0;
 
-    while !queue.is_empty() {
+    while !vertices.empty() {
         //feedback
         count += 1.0;
         let tmp = count / n as f64;
@@ -50,7 +93,7 @@ pub fn dijkstra(
         }
 
         //choose next vector
-        let u = pop_min(&dist, &mut queue);
+        let u = vertices.pop_min();
         if target == Some(u) {
             break;
         }
@@ -60,7 +103,7 @@ pub fn dijkstra(
             .iter()
             .enumerate()
             .filter_map(|(i, e)| {
-                if e.from == u && queue.contains(&e.to) {
+                if e.from == u && vertices.contains(&e.to) {
                     Some((i, e))
                 } else {
                     None
@@ -70,10 +113,10 @@ pub fn dijkstra(
 
         // update neighbors
         for e in nbe {
-            let alt = dist[usize::from(u)] + e.weight;
-            if alt < dist[usize::from(e.to)] {
-                dist[usize::from(e.to)] = alt;
-                prev[usize::from(e.to)] = u;
+            let alt = vertices.get_dist(u) + e.weight;
+            if alt < vertices.get_dist(e.to) {
+                vertices.update_dist(e.to, alt);
+                vertices.update_prev(e.to, u);
             }
         }
         //discard used edges
@@ -81,7 +124,7 @@ pub fn dijkstra(
             let _ = edges.swap_remove(*i);
         }
     }
-    return (prev, dist);
+    return vertices;
 }
 
 fn main() {
@@ -89,13 +132,14 @@ fn main() {
 
     let n: usize = load_max_vertex(Path::new("./data/NY.co")).into();
     let source: Vertex = rng.gen_range(0..n).try_into().unwrap();
+    let vertices = VertexList::new(n, source);
     let edges: Vec<Edge> = load_edges(Path::new("./data/NY-d.gr")).collect();
 
-    let (ancestors, distances) = dijkstra(source, None, n, edges);
+    let vlist = dijkstra_unwrapped(None, n, vertices, edges);
     assert_eq!(
         (
-            ancestors[usize::from(source)],
-            distances[usize::from(source)]
+            vlist.prev[usize::from(source)],
+            vlist.dist[usize::from(source)]
         ),
         (UNDEFINED, 0)
     );
