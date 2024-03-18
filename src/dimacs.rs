@@ -8,7 +8,7 @@ use std::{
     str::FromStr,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Hash, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Vertex(pub u32);
 
 pub const UNDEFINED: Vertex = Vertex(0);
@@ -41,6 +41,7 @@ impl From<Vertex> for usize {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Edge {
     pub from: Vertex,
     pub to: Vertex,

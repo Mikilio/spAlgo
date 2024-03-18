@@ -1,5 +1,6 @@
 use crate::dimacs::*;
 use rand::{thread_rng, Rng};
+use std::io::prelude::*;
 use std::path::Path;
 
 pub mod dimacs;
@@ -8,48 +9,114 @@ struct VertexList {
     queue: Vec<Vertex>,
     dist: Vec<u32>,
     prev: Vec<Vertex>,
+    seen: Vec<bool>,
 }
 
 impl VertexList {
     fn new(n: usize, source: Vertex) -> Self {
-        let mut queue: Vec<Vertex> = Vec::with_capacity(n);
+        let mut queue: Vec<Vertex> = Vec::new();
         let mut dist: Vec<u32> = Vec::with_capacity(n);
         let mut prev: Vec<Vertex> = Vec::with_capacity(n);
+        let mut seen: Vec<bool> = Vec::with_capacity(n);
+
+        queue.push(source);
 
         for i in 0..n {
             let v = Vertex::try_from(i).unwrap();
-            queue.push(v);
             dist.push(if v == source { 0 } else { u32::MAX });
             prev.push(UNDEFINED);
+            seen.push(false);
         }
-        Self { queue, dist, prev }
+        Self {
+            queue,
+            dist,
+            prev,
+            seen,
+        }
     }
 }
 
-type VertexHeap = VertexList;
+struct VertexHeap {
+    queue: Vec<Vertex>,
+    dist: Vec<u32>,
+    prev: Vec<Vertex>,
+    seen: Vec<bool>,
+}
+
+impl VertexHeap {
+    fn new(n: usize, source: Vertex) -> Self {
+        let list = VertexList::new(n, source);
+        Self {
+            queue: list.queue,
+            dist: list.dist,
+            prev: list.prev,
+            seen: list.seen,
+        }
+    }
+
+    fn bubble_up(&mut self) {
+        let mut child = self.queue.len() - 1;
+        let heap = &mut (self.queue);
+
+        let mut parent;
+        while child > 0 {
+            parent = (child - 1) / 2;
+            if self.dist[usize::from(heap[parent])] <= self.dist[usize::from(heap[child])] {
+                break;
+            }
+            heap.swap(parent, child);
+            child = parent;
+        }
+    }
+
+    fn bubble_down(&mut self) {
+        let mut parent = 0;
+        let n = self.queue.len();
+        let heap = &mut (self.queue);
+
+        let mut child;
+        while {
+            let left = parent * 2 + 1;
+            let right = left + 1;
+            child = if right < n
+                && self.dist[usize::from(heap[left])] > self.dist[usize::from(heap[right])]
+            {
+                right
+            } else {
+                left
+            };
+            child < n
+        } {
+            if self.dist[usize::from(heap[parent])] <= self.dist[usize::from(heap[child])] {
+                break;
+            }
+            heap.swap(parent, child);
+            parent = child;
+        }
+    }
+}
 
 trait PriorityQueue {
-    fn update_dist(&mut self, v: Vertex, new: u32);
-    fn update_prev(&mut self, v: Vertex, new: Vertex);
+    fn update_vertice(&mut self, v: Vertex, dist: u32, prev: Vertex);
     fn get_dist(&mut self, v: Vertex) -> u32;
-    fn get_prev(&mut self, v: Vertex) -> Vertex;
+    fn expanded(&mut self, v: Vertex) -> bool;
     fn pop_min(&mut self) -> Vertex;
-    fn contains(&self, v: &Vertex) -> bool;
     fn empty(&mut self) -> bool;
 }
 
 impl PriorityQueue for VertexList {
-    fn update_dist(&mut self, v: Vertex, new: u32) {
-        self.dist[usize::from(v)] = new;
-    }
-    fn update_prev(&mut self, v: Vertex, new: Vertex) {
-        self.prev[usize::from(v)] = new;
+    fn update_vertice(&mut self, v: Vertex, dist: u32, prev: Vertex) {
+        if self.prev[usize::from(v)] == UNDEFINED {
+            self.queue.push(v);
+        }
+        self.dist[usize::from(v)] = dist;
+        self.prev[usize::from(v)] = prev;
     }
     fn get_dist(&mut self, v: Vertex) -> u32 {
         self.dist[usize::from(v)]
     }
-    fn get_prev(&mut self, v: Vertex) -> Vertex {
-        self.prev[usize::from(v)]
+    fn expanded(&mut self, v: Vertex) -> bool {
+        self.seen[usize::from(v)]
     }
     fn pop_min(&mut self) -> Vertex {
         let i = self
@@ -61,27 +128,59 @@ impl PriorityQueue for VertexList {
             })
             .map(|(index, _)| index)
             .unwrap();
-        return self.queue.swap_remove(i);
-    }
-    fn contains(&self, v: &Vertex) -> bool {
-        self.queue.contains(v)
+        let min = self.queue.swap_remove(i);
+        self.seen[usize::from(min)] = true;
+        return min;
     }
     fn empty(&mut self) -> bool {
         self.queue.is_empty()
     }
 }
 
+impl PriorityQueue for VertexHeap {
+    fn update_vertice(&mut self, v: Vertex, dist: u32, prev: Vertex) {
+        self.dist[usize::from(v)] = dist;
+        if self.prev[usize::from(v)] == UNDEFINED {
+            self.queue.push(v);
+            self.bubble_up();
+        }
+        self.prev[usize::from(v)] = prev;
+    }
+    fn get_dist(&mut self, v: Vertex) -> u32 {
+        self.dist[usize::from(v)]
+    }
+    fn expanded(&mut self, v: Vertex) -> bool {
+        self.seen[usize::from(v)]
+    }
+    fn pop_min(&mut self) -> Vertex {
+        let min = self.queue.swap_remove(0);
+        self.bubble_down();
+        self.seen[usize::from(min)] = true;
+        return min;
+    }
+    fn empty(&mut self) -> bool {
+        self.queue.is_empty()
+    }
+}
 fn dijkstra_unwrapped<I>(
     target: Option<Vertex>,
     n: usize,
     mut vertices: I,
-    mut edges: Vec<Edge>,
+    edges: impl Iterator<Item = Edge>,
 ) -> I
 where
     I: PriorityQueue,
 {
     let mut count = 0.0;
     let mut ratio = 0.0;
+    print!("progess {:.2}%", ratio * 100.);
+    std::io::stdout().flush().unwrap();
+
+    let mut out_edges = vec![Vec::new(); n];
+
+    for e in edges {
+        out_edges[usize::from(e.from)].push(e);
+    }
 
     while !vertices.empty() {
         //feedback
@@ -89,7 +188,8 @@ where
         let tmp = count / n as f64;
         if (tmp - ratio) > 0.001 {
             ratio = tmp;
-            println!("ratio {:.3}", ratio);
+            print!("\rprogess {:.2}%", ratio * 100.);
+            std::io::stdout().flush().unwrap();
         }
 
         //choose next vector
@@ -98,32 +198,15 @@ where
             break;
         }
 
-        // get neighbors of u
-        let (nbi, nbe): (Vec<usize>, Vec<&Edge>) = edges
-            .iter()
-            .enumerate()
-            .filter_map(|(i, e)| {
-                if e.from == u && vertices.contains(&e.to) {
-                    Some((i, e))
-                } else {
-                    None
-                }
-            })
-            .unzip();
-
-        // update neighbors
-        for e in nbe {
-            let alt = vertices.get_dist(u) + e.weight;
-            if alt < vertices.get_dist(e.to) {
-                vertices.update_dist(e.to, alt);
-                vertices.update_prev(e.to, u);
+        // update neighbors of u
+        for e in &out_edges[usize::from(u)] {
+            let alt = vertices.get_dist(e.from) + e.weight;
+            if !vertices.expanded(e.to) && alt < vertices.get_dist(e.to) {
+                vertices.update_vertice(e.to, alt, u);
             }
         }
-        //discard used edges
-        for i in nbi.iter().rev() {
-            let _ = edges.swap_remove(*i);
-        }
     }
+    println!("");
     return vertices;
 }
 
@@ -131,16 +214,18 @@ fn main() {
     let mut rng = thread_rng();
 
     let n: usize = load_max_vertex(Path::new("./data/NY.co")).into();
+    let n = n + 1;
+    println!("{}", n);
     let source: Vertex = rng.gen_range(0..n).try_into().unwrap();
     let vertices = VertexList::new(n, source);
-    let edges: Vec<Edge> = load_edges(Path::new("./data/NY-d.gr")).collect();
-
+    let edges = load_edges(Path::new("./data/NY-d.gr"));
     let vlist = dijkstra_unwrapped(None, n, vertices, edges);
-    assert_eq!(
-        (
-            vlist.prev[usize::from(source)],
-            vlist.dist[usize::from(source)]
-        ),
-        (UNDEFINED, 0)
-    );
+    let vertices = VertexHeap::new(n, source);
+    let edges = load_edges(Path::new("./data/NY-d.gr"));
+    let vheap = dijkstra_unwrapped(None, n, vertices, edges);
+
+    for i in 0..n {
+        assert_eq!(vlist.dist[i], vheap.dist[i], "dist on {}", i);
+        assert_eq!(vlist.prev[i], vheap.prev[i], "prev on {}", i);
+    }
 }
