@@ -6,4 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+
+[dev-dependencies]
+criterion = "0.3"
 rand = "0.8.4"
+
+[[bench]]
+name = "single_source_all_targets"
+harness = false

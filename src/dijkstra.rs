@@ -1,38 +1,15 @@
-use crate::dimacs::*;
-use std::io::Write;
+use std::usize;
 
-pub struct VertexList {
+use crate::dimacs::*;
+
+pub struct SimpleList {
     queue: Vec<Vertex>,
     pub dist: Vec<u32>,
     pub prev: Vec<Vertex>,
     seen: Vec<bool>,
 }
 
-impl VertexList {
-    pub fn new(n: usize, source: Vertex) -> Self {
-        let mut queue: Vec<Vertex> = Vec::new();
-        let mut dist: Vec<u32> = Vec::with_capacity(n);
-        let mut prev: Vec<Vertex> = Vec::with_capacity(n);
-        let mut seen: Vec<bool> = Vec::with_capacity(n);
-
-        queue.push(source);
-
-        for i in 0..n {
-            let v = Vertex::try_from(i).unwrap();
-            dist.push(if v == source { 0 } else { u32::MAX });
-            prev.push(UNDEFINED);
-            seen.push(false);
-        }
-        Self {
-            queue,
-            dist,
-            prev,
-            seen,
-        }
-    }
-}
-
-pub struct VertexHeap {
+pub struct BinaryHeap {
     heap: Vec<Vertex>,
     hlookup: Vec<usize>,
     pub dist: Vec<u32>,
@@ -40,20 +17,7 @@ pub struct VertexHeap {
     seen: Vec<bool>,
 }
 
-impl VertexHeap {
-    pub fn new(n: usize, source: Vertex) -> Self {
-        let list = VertexList::new(n, source);
-        let mut hlookup = vec![usize::MAX; n];
-        hlookup[usize::from(source)] = 0;
-        Self {
-            heap: list.queue,
-            hlookup,
-            dist: list.dist,
-            prev: list.prev,
-            seen: list.seen,
-        }
-    }
-
+impl BinaryHeap {
     fn bubble_up(&mut self, dirt: usize) {
         let mut child = dirt;
         let heap = &mut (self.heap);
@@ -105,6 +69,7 @@ impl VertexHeap {
 }
 
 pub trait PriorityQueue {
+    fn new(n: usize, source: Vertex) -> Self;
     fn update_vertice(&mut self, v: Vertex, dist: u32, prev: Vertex);
     fn get_dist(&mut self, v: Vertex) -> u32;
     fn expanded(&mut self, v: Vertex) -> bool;
@@ -112,7 +77,28 @@ pub trait PriorityQueue {
     fn empty(&mut self) -> bool;
 }
 
-impl PriorityQueue for VertexList {
+impl PriorityQueue for SimpleList {
+    fn new(n: usize, source: Vertex) -> Self {
+        let mut queue: Vec<Vertex> = Vec::new();
+        let mut dist: Vec<u32> = Vec::with_capacity(n);
+        let mut prev: Vec<Vertex> = Vec::with_capacity(n);
+        let mut seen: Vec<bool> = Vec::with_capacity(n);
+
+        queue.push(source);
+
+        for i in 0..n {
+            let v = Vertex::try_from(i).unwrap();
+            dist.push(if v == source { 0 } else { u32::MAX });
+            prev.push(UNDEFINED);
+            seen.push(false);
+        }
+        Self {
+            queue,
+            dist,
+            prev,
+            seen,
+        }
+    }
     fn update_vertice(&mut self, v: Vertex, dist: u32, prev: Vertex) {
         if self.prev[usize::from(v)] == UNDEFINED {
             self.queue.push(v);
@@ -145,7 +131,20 @@ impl PriorityQueue for VertexList {
     }
 }
 
-impl PriorityQueue for VertexHeap {
+impl PriorityQueue for BinaryHeap {
+    fn new(n: usize, source: Vertex) -> Self {
+        let list = SimpleList::new(n, source);
+        let mut hlookup = vec![usize::MAX; n];
+        hlookup[usize::from(source)] = 0;
+        Self {
+            heap: list.queue,
+            hlookup,
+            dist: list.dist,
+            prev: list.prev,
+            seen: list.seen,
+        }
+    }
+
     fn update_vertice(&mut self, v: Vertex, dist: u32, prev: Vertex) {
         self.dist[usize::from(v)] = dist;
         if self.prev[usize::from(v)] == UNDEFINED {
@@ -165,6 +164,12 @@ impl PriorityQueue for VertexHeap {
         self.seen[usize::from(v)]
     }
     fn pop_min(&mut self) -> Vertex {
+        let last = self
+            .heap
+            .last()
+            .expect("pop_min called even though heap was empty")
+            .clone();
+        self.hlookup[usize::from(last)] = 0;
         let min = self.heap.swap_remove(0);
         self.bubble_down();
         self.seen[usize::from(min)] = true;
@@ -174,52 +179,46 @@ impl PriorityQueue for VertexHeap {
         self.heap.is_empty()
     }
 }
-pub fn dijkstra_unwrapped<I>(
-    target: Option<Vertex>,
-    n: usize,
-    mut vertices: I,
-    edges: impl Iterator<Item = Edge>,
-) -> I
-where
-    I: PriorityQueue,
-{
-    let mut count = 0.0;
-    let mut ratio = 0.0;
-    print!("progess {:.2}%", ratio * 100.);
-    std::io::stdout().flush().unwrap();
 
-    let mut out_edges = vec![Vec::new(); n];
+pub struct NeighborList(Vec<Vec<Edge>>);
 
-    for e in edges {
-        out_edges[usize::from(e.from)].push(e);
+pub trait StructuredEdges {
+    fn new(n: usize, edges: impl Iterator<Item = Edge>) -> Self;
+    fn get_neighbors(&self, u: Vertex) -> impl Iterator<Item = &Edge>;
+}
+
+impl StructuredEdges for NeighborList {
+    fn new(n: usize, edges: impl Iterator<Item = Edge>) -> Self {
+        let mut out_edges: Vec<Vec<Edge>> = vec![Vec::new(); n];
+
+        for e in edges {
+            out_edges[usize::from(e.from)].push(e);
+        }
+        return NeighborList(out_edges);
     }
+    fn get_neighbors(&self, u: Vertex) -> impl Iterator<Item = &Edge> {
+        self.0[usize::from(u)].iter()
+    }
+}
 
-    while !vertices.empty() {
-        //feedback
-        count += 1.0;
-        let tmp = count / n as f64;
-        if (tmp - ratio) > 0.001 {
-            ratio = tmp;
-            print!("\rprogess {:.2}%", ratio * 100.);
-            std::io::stdout().flush().unwrap();
-        }
-
+pub fn dijkstra<Q, E>(mut queue: Q, edges: &E) -> Q
+where
+    Q: PriorityQueue,
+    E: StructuredEdges,
+{
+    while !queue.empty() {
         //choose next vector
-        let u = vertices.pop_min();
-        if target == Some(u) {
-            break;
-        }
+        let u = queue.pop_min();
 
         // update neighbors of u
-        for e in &out_edges[usize::from(u)] {
-            let alt = vertices.get_dist(e.from) + e.weight;
-            if !vertices.expanded(e.to) && alt < vertices.get_dist(e.to) {
-                vertices.update_vertice(e.to, alt, u);
+        for e in edges.get_neighbors(u) {
+            let alt = queue.get_dist(e.from) + e.weight;
+            if !queue.expanded(e.to) && alt < queue.get_dist(e.to) {
+                queue.update_vertice(e.to, alt, u);
             }
         }
     }
-    println!("");
-    return vertices;
+    return queue;
 }
 
 #[cfg(test)]
@@ -232,7 +231,7 @@ mod tests {
     fn push_pop_list() {
         let n = 10000;
         let mut highest_min = 0;
-        let mut vertices = VertexList::new(n, Vertex(1));
+        let mut vertices = SimpleList::new(n, Vertex(1));
         let mut rng = thread_rng();
         //push
         for i in 1..n {
@@ -259,7 +258,7 @@ mod tests {
     fn push_pop_heap() {
         let n = 10000;
         let mut highest_min = 0;
-        let mut vertices = VertexHeap::new(n, Vertex(1));
+        let mut vertices = BinaryHeap::new(n, Vertex(1));
         let mut rng = thread_rng();
         for i in 1..n {
             let new_vertex = Vertex::try_from(i).unwrap();

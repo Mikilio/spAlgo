@@ -5,7 +5,7 @@
   env.GREET = "devenv";
 
   # https://devenv.sh/packages/
-  packages = with pkgs; [ git curl gzip ];
+  packages = with pkgs; [ git curl gzip gnuplot];
 
   # https://devenv.sh/scripts/
   scripts.pull-data = {
