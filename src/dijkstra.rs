@@ -3,88 +3,20 @@ use std::usize;
 use crate::dimacs::*;
 
 pub struct SimpleList {
-    queue: Vec<Vertex>,
-    pub dist: Vec<u32>,
-    pub prev: Vec<Vertex>,
+    inner: Vec<Vertex>,
+    dist: Vec<u32>,
+    prev: Vec<Vertex>,
     seen: Vec<bool>,
 }
 
-pub struct BinaryHeap {
-    heap: Vec<Vertex>,
-    hlookup: Vec<usize>,
-    pub dist: Vec<u32>,
-    pub prev: Vec<Vertex>,
-    seen: Vec<bool>,
-}
-
-impl BinaryHeap {
-    fn bubble_up(&mut self, dirt: usize) {
-        let mut child = dirt;
-        let heap = &mut (self.heap);
-
-        let mut parent;
-        while child > 0 {
-            parent = (child - 1) / 2;
-            let parent_v_i = usize::from(heap[parent]);
-            let child_v_i = usize::from(heap[child]);
-            if self.dist[parent_v_i] <= self.dist[child_v_i] {
-                break;
-            }
-            self.hlookup[parent_v_i] = child;
-            self.hlookup[child_v_i] = parent;
-            heap.swap(parent, child);
-            child = parent;
-        }
-    }
-
-    fn bubble_down(&mut self) {
-        let mut parent = 0;
-        let n = self.heap.len();
-        let heap = &mut (self.heap);
-
-        let mut child;
-        while {
-            let left = parent * 2 + 1;
-            let right = left + 1;
-            child = if right < n
-                && self.dist[usize::from(heap[left])] > self.dist[usize::from(heap[right])]
-            {
-                right
-            } else {
-                left
-            };
-            child < n
-        } {
-            let parent_v_i = usize::from(heap[parent]);
-            let child_v_i = usize::from(heap[child]);
-            if self.dist[parent_v_i] <= self.dist[child_v_i] {
-                break;
-            }
-            self.hlookup[parent_v_i] = child;
-            self.hlookup[child_v_i] = parent;
-            heap.swap(parent, child);
-            parent = child;
-        }
-    }
-}
-
-pub trait PriorityQueue {
-    fn new(n: usize, source: Vertex) -> Self;
-    fn update_vertice(&mut self, v: Vertex, dist: u32, prev: Vertex);
-    fn get_dist(&mut self, v: Vertex) -> u32;
-    fn expanded(&mut self, v: Vertex) -> bool;
-    fn pop_min(&mut self) -> Vertex;
-    fn empty(&mut self) -> bool;
-}
-
-impl PriorityQueue for SimpleList {
-    fn new(n: usize, source: Vertex) -> Self {
-        let mut queue: Vec<Vertex> = Vec::new();
+impl SimpleList {
+    pub fn new(n: usize, source: Vertex) -> Self {
+        let mut inner: Vec<Vertex> = Vec::new();
         let mut dist: Vec<u32> = Vec::with_capacity(n);
         let mut prev: Vec<Vertex> = Vec::with_capacity(n);
         let mut seen: Vec<bool> = Vec::with_capacity(n);
 
-        queue.push(source);
+        inner.push(source);
 
         for i in 0..n {
             let v = Vertex::try_from(i).unwrap();
@@ -93,90 +25,91 @@ impl PriorityQueue for SimpleList {
             seen.push(false);
         }
         Self {
-            queue,
+            inner,
             dist,
             prev,
             seen,
         }
     }
-    fn update_vertice(&mut self, v: Vertex, dist: u32, prev: Vertex) {
-        if self.prev[usize::from(v)] == UNDEFINED {
-            self.queue.push(v);
-        }
-        self.dist[usize::from(v)] = dist;
-        self.prev[usize::from(v)] = prev;
+}
+
+pub trait Dijkstra<T> {
+    fn new(n: usize, source: Vertex) -> Self;
+    fn get_inner(&self) -> &T;
+    fn get_mut_inner(&mut self) -> &mut T;
+    fn get_dist(&self, v: Vertex) -> u32;
+    fn set_dist(&mut self, v: Vertex, dist: u32);
+    fn get_prev(&self, v: Vertex) -> Vertex;
+    fn set_prev(&mut self, v: Vertex, prev: Vertex);
+    fn expanded(&self, v: Vertex) -> bool;
+    fn mark_seen(&mut self, v: Vertex);
+}
+
+pub trait PriorityQueue {
+    fn new(n: usize, source: Vertex) -> Self;
+    fn explore(&mut self, e: &Edge);
+    fn pop_min(&mut self) -> Vertex;
+    fn empty(&mut self) -> bool;
+}
+
+impl Dijkstra<Vec<Vertex>> for SimpleList {
+    fn new(n: usize, source: Vertex) -> Self {
+        SimpleList::new(n, source)
     }
-    fn get_dist(&mut self, v: Vertex) -> u32 {
+    fn get_inner(&self) -> &Vec<Vertex> {
+        &self.inner
+    }
+    fn get_mut_inner(&mut self) -> &mut Vec<Vertex> {
+        &mut self.inner
+    }
+    fn get_dist(&self, v: Vertex) -> u32 {
         self.dist[usize::from(v)]
     }
-    fn expanded(&mut self, v: Vertex) -> bool {
+    fn set_dist(&mut self, v: Vertex, dist: u32) {
+        self.dist[usize::from(v)] = dist;
+    }
+    fn get_prev(&self, v: Vertex) -> Vertex {
+        self.prev[usize::from(v)]
+    }
+    fn set_prev(&mut self, v: Vertex, prev: Vertex) {
+        self.prev[usize::from(v)] = prev;
+    }
+    fn expanded(&self, v: Vertex) -> bool {
         self.seen[usize::from(v)]
     }
-    fn pop_min(&mut self) -> Vertex {
-        let i = self
-            .queue
-            .iter()
-            .enumerate()
-            .min_by(|(_, &a), (_, &b)| {
-                (&(self.dist)[usize::from(a)]).cmp(&(self.dist)[usize::from(b)])
-            })
-            .map(|(index, _)| index)
-            .unwrap();
-        let min = self.queue.swap_remove(i);
-        self.seen[usize::from(min)] = true;
-        return min;
-    }
-    fn empty(&mut self) -> bool {
-        self.queue.is_empty()
+    fn mark_seen(&mut self, v: Vertex) {
+        self.seen[usize::from(v)] = true;
     }
 }
 
-impl PriorityQueue for BinaryHeap {
+impl PriorityQueue for SimpleList {
     fn new(n: usize, source: Vertex) -> Self {
-        let list = SimpleList::new(n, source);
-        let mut hlookup = vec![usize::MAX; n];
-        hlookup[usize::from(source)] = 0;
-        Self {
-            heap: list.queue,
-            hlookup,
-            dist: list.dist,
-            prev: list.prev,
-            seen: list.seen,
-        }
-    }
-
-    fn update_vertice(&mut self, v: Vertex, dist: u32, prev: Vertex) {
-        self.dist[usize::from(v)] = dist;
-        if self.prev[usize::from(v)] == UNDEFINED {
-            self.heap.push(v);
-            let end = self.heap.len() - 1;
-            self.hlookup[usize::from(v)] = end;
-            self.bubble_up(end);
-        } else {
-            self.bubble_up(self.hlookup[usize::from(v)]);
-        }
-        self.prev[usize::from(v)] = prev;
-    }
-    fn get_dist(&mut self, v: Vertex) -> u32 {
-        self.dist[usize::from(v)]
-    }
-    fn expanded(&mut self, v: Vertex) -> bool {
-        self.seen[usize::from(v)]
+        SimpleList::new(n, source)
     }
     fn pop_min(&mut self) -> Vertex {
-        let last = self
-            .heap
-            .last()
-            .expect("pop_min called even though heap was empty")
-            .clone();
-        self.hlookup[usize::from(last)] = 0;
-        let min = self.heap.swap_remove(0);
-        self.bubble_down();
-        self.seen[usize::from(min)] = true;
+        let list = self.get_inner();
+        let i = list
+            .iter()
+            .enumerate()
+            .min_by(|(_, &a), (_, &b)| self.get_dist(a).cmp(&self.get_dist(b)))
+            .map(|(index, _)| index)
+            .unwrap();
+        let min = self.get_mut_inner().swap_remove(i);
+        self.mark_seen(min);
         return min;
     }
+    fn explore(&mut self, e: &Edge) {
+        let alt = self.get_dist(e.from) + e.weight;
+        if !self.expanded(e.to) && alt < self.get_dist(e.to) {
+            if self.get_prev(e.to) == UNDEFINED {
+                self.get_mut_inner().push(e.to);
+            }
+            self.set_dist(e.to, alt);
+            self.set_prev(e.to, e.from);
+        }
+    }
     fn empty(&mut self) -> bool {
-        self.heap.is_empty()
+        self.get_mut_inner().is_empty()
     }
 }
 
@@ -212,10 +145,7 @@ where
 
         // update neighbors of u
         for e in edges.get_neighbors(u) {
-            let alt = queue.get_dist(e.from) + e.weight;
-            if !queue.expanded(e.to) && alt < queue.get_dist(e.to) {
-                queue.update_vertice(e.to, alt, u);
-            }
+            queue.explore(&e);
         }
     }
     return queue;
@@ -235,45 +165,28 @@ mod tests {
         let mut rng = thread_rng();
         //push
         for i in 1..n {
-            let new_vertex = Vertex::try_from(i).unwrap();
-            vertices.update_vertice(new_vertex, rng.gen_range(1..1000000), Vertex(1))
+            let to = Vertex::try_from(i).unwrap();
+            vertices.explore(&Edge {
+                from: Vertex(1),
+                weight: rng.gen_range(1..1000000),
+                to,
+            });
         }
         //decrease_key
         for _ in 0..n {
-            let v: Vertex = rng.gen_range(1..n).try_into().unwrap();
+            let from = Vertex(1);
             let to: Vertex = rng.gen_range(1..n).try_into().unwrap();
-            let new = vertices.get_dist(v) / 2;
-            vertices.update_vertice(v, new, to);
+            let new = vertices.get_dist(to) / 2;
+            vertices.explore(&Edge {
+                from,
+                weight: new,
+                to,
+            });
         }
         //pop
         for _ in 0..n {
             let popped = vertices.pop_min();
-            let value = vertices.dist[usize::from(popped)];
-            assert!(value >= highest_min);
-            highest_min = u32::max(highest_min, value);
-        }
-        assert!(vertices.empty());
-    }
-    #[test]
-    fn push_pop_heap() {
-        let n = 10000;
-        let mut highest_min = 0;
-        let mut vertices = BinaryHeap::new(n, Vertex(1));
-        let mut rng = thread_rng();
-        for i in 1..n {
-            let new_vertex = Vertex::try_from(i).unwrap();
-            vertices.update_vertice(new_vertex, rng.gen_range(1..1000000), Vertex(1))
-        }
-        //decrease_key
-        for _ in 0..n {
-            let v: Vertex = rng.gen_range(1..n).try_into().unwrap();
-            let to: Vertex = rng.gen_range(1..n).try_into().unwrap();
-            let new = vertices.get_dist(v) / 2;
-            vertices.update_vertice(v, new, to);
-        }
-        for _ in 0..n {
-            let popped = vertices.pop_min();
-            let value = vertices.dist[usize::from(popped)];
+            let value = vertices.get_dist(popped);
             assert!(value >= highest_min);
             highest_min = u32::max(highest_min, value);
         }
