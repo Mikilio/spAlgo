@@ -1,6 +1,19 @@
 use crate::dijkstra::Dijkstra;
+use crate::dijkstra::Neighbor;
 use crate::dijkstra::PriorityQueue;
 use crate::dimacs::*;
+
+#[derive(Clone, Copy, Debug)]
+pub struct Item {
+    v: Vertex,
+    dist: u32,
+}
+
+impl From<Item> for Vertex {
+    fn from(i: Item) -> Vertex {
+        i.v
+    }
+}
 
 pub trait Lookup: Dijkstra<Vec<Vertex>> {
     fn lookup(&self, v: Vertex) -> usize;
@@ -12,23 +25,42 @@ pub trait ImplicitHeap: Lookup {
     fn bubble_down(&mut self);
 }
 
-pub trait ImplicitHeapSimple: Dijkstra<Vec<(Vertex,u32)>> {
+pub trait ImplicitHeapSimple: Dijkstra<Vec<Item>> {
     fn bubble_up(&mut self);
     fn bubble_down(&mut self);
 }
 
-macro_rules! dijkstra_trait {
-    ($T:ident,$item:ty) => {
-        impl Dijkstra<Vec<$item>> for $T {
+macro_rules! implicit_heap_simple {
+    ($k:expr, $T:ident) => {
+        pub struct $T {
+            inner: Vec<Item>,
+            prev: Vec<Vertex>,
+            dist: Vec<u32>,
+        }
+
+        impl $T {
+            pub fn new(n: usize, source: Vertex) -> Self {
+                let mut inner: Vec<Item> = Vec::new();
+                inner.push(Item { v: source, dist: 0 });
+                Self {
+                    inner,
+                    prev: vec![UNDEFINED; n],
+                    dist: vec![0; n],
+                }
+            }
+        }
+
+        impl Dijkstra<Vec<Item>> for $T {
             fn new(n: usize, source: Vertex) -> Self {
                 $T::new(n, source)
             }
-            fn get_inner(&self) -> &Vec<$item> {
+            fn get_inner(&self) -> &Vec<Item> {
                 &self.inner
             }
-            fn get_mut_inner(&mut self) -> &mut Vec<$item> {
+            fn get_mut_inner(&mut self) -> &mut Vec<Item> {
                 &mut self.inner
             }
+
             fn get_dist(&self, v: Vertex) -> u32 {
                 self.dist[usize::from(v)]
             }
@@ -42,40 +74,11 @@ macro_rules! dijkstra_trait {
                 self.prev[usize::from(v)] = prev;
             }
             fn expanded(&self, v: Vertex) -> bool {
-                self.seen[usize::from(v)]
+                self.dist[usize::from(v)] != 0
             }
-            fn mark_seen(&mut self, v: Vertex) {
-                self.seen[usize::from(v)] = true;
-            }
+            // is never used as expanded status depends on dist
+            fn mark_seen(&mut self, _: Vertex) {}
         }
-    };
-}
-
-macro_rules! implicit_heap_simple {
-    ($k:expr, $T:ident) => {
-        pub struct $T {
-            inner: Vec<(Vertex,u32)>,
-            dist: Vec<u32>,
-            prev: Vec<Vertex>,
-            seen: Vec<bool>,
-        }
-
-        impl $T {
-            pub fn new(n: usize, source: Vertex) -> Self {
-                let mut inner: Vec<(Vertex,u32)> = Vec::new();
-                let mut dist = vec![u32::MAX; n];
-                inner.push((source,0));
-                dist[usize::from(source)] = 0;
-                Self {
-                    inner,
-                    dist,
-                    prev: vec![UNDEFINED; n],
-                    seen: vec![false; n],
-                }
-            }
-        }
-
-        dijkstra_trait!($T, (Vertex,u32));
 
         impl ImplicitHeapSimple for $T {
             fn bubble_up(&mut self) {
@@ -85,9 +88,9 @@ macro_rules! implicit_heap_simple {
                 while child > 0 {
                     let heap = self.get_inner();
                     parent = (child - 1) / $k;
-                    let (_,dist_parent) = heap[parent];
-                    let (_,dist_child) = heap[child];
-                    if dist_parent <= dist_child {
+                    let parent_item = heap[parent];
+                    let child_item = heap[child];
+                    if parent_item.dist <= child_item.dist {
                         break;
                     }
                     self.get_mut_inner().swap(parent, child);
@@ -105,10 +108,10 @@ macro_rules! implicit_heap_simple {
                     let base = parent * $k + 1;
                     let end = usize::min(base + $k, n);
                     child = (base..end).reduce(|left, right| {
-                    let (_,dist_left) = heap[left];
-                    let (_,dist_right) = heap[right];
+                        let left_item = heap[left];
+                        let right_item = heap[right];
 
-                        if dist_left > dist_right{
+                        if left_item.dist > right_item.dist {
                             right
                         } else {
                             left
@@ -117,9 +120,10 @@ macro_rules! implicit_heap_simple {
                     child != None
                 } {
                     let child = child.unwrap();
-                    let (_,dist_parent) = self.get_inner()[parent];
-                    let (_,dist_child) = self.get_inner()[child];
-                    if dist_parent <= dist_child {
+                    let heap = self.get_inner();
+                    let parent_item = heap[parent];
+                    let child_item = heap[child];
+                    if parent_item.dist <= child_item.dist {
                         break;
                     }
                     self.get_mut_inner().swap(parent, child);
@@ -128,28 +132,27 @@ macro_rules! implicit_heap_simple {
             }
         }
 
-        impl PriorityQueue for $T {
+        impl PriorityQueue<Item, Neighbor> for $T {
             fn new(n: usize, source: Vertex) -> Self {
                 $T::new(n, source)
             }
-            fn explore(&mut self, e: &Edge) {
-                let alt = self.get_dist(e.from) + e.weight;
-                if !self.expanded(e.to) && alt < self.get_dist(e.to) {
-                    self.get_mut_inner().push((e.to,alt));
-                    self.set_dist(e.to, alt);
+            fn explore(&mut self, from: Item, e: &Neighbor) {
+                let alt = from.dist + e.weight;
+                if !self.expanded(e.to) {
+                    self.get_mut_inner().push(Item { v: e.to, dist: alt });
                     self.bubble_up();
-                    self.set_prev(e.to, e.from);
+                    self.set_prev(e.to, from.v);
                 }
             }
 
-            fn pop_min(&mut self) -> Vertex {
-                let (min,_) = self.get_mut_inner().swap_remove(0);
+            fn pop_min(&mut self) -> Item {
+                let min = self.get_mut_inner().swap_remove(0);
                 self.bubble_down();
-                self.mark_seen(min);
+                self.set_dist(min.v, min.dist);
                 while {
                     !self.empty() && {
-                        let (maybe_min,_) = self.get_mut_inner()[0];
-                        self.expanded(maybe_min)
+                        let maybe_min = &self.get_inner()[0];
+                        self.expanded(maybe_min.v)
                     }
                 } {
                     self.get_mut_inner().swap_remove(0);
@@ -190,7 +193,35 @@ macro_rules! implicit_heap {
             }
         }
 
-        dijkstra_trait!($T,Vertex);
+        impl Dijkstra<Vec<Vertex>> for $T {
+            fn new(n: usize, source: Vertex) -> Self {
+                $T::new(n, source)
+            }
+            fn get_inner(&self) -> &Vec<Vertex> {
+                &self.inner
+            }
+            fn get_mut_inner(&mut self) -> &mut Vec<Vertex> {
+                &mut self.inner
+            }
+            fn get_dist(&self, v: Vertex) -> u32 {
+                self.dist[usize::from(v)]
+            }
+            fn set_dist(&mut self, v: Vertex, dist: u32) {
+                self.dist[usize::from(v)] = dist;
+            }
+            fn get_prev(&self, v: Vertex) -> Vertex {
+                self.prev[usize::from(v)]
+            }
+            fn set_prev(&mut self, v: Vertex, prev: Vertex) {
+                self.prev[usize::from(v)] = prev;
+            }
+            fn expanded(&self, v: Vertex) -> bool {
+                self.seen[usize::from(v)]
+            }
+            fn mark_seen(&mut self, v: Vertex) {
+                self.seen[usize::from(v)] = true;
+            }
+        }
 
         impl Lookup for $T {
             fn lookup(&self, v: Vertex) -> usize {
@@ -254,12 +285,12 @@ macro_rules! implicit_heap {
             }
         }
 
-        impl PriorityQueue for $T {
+        impl PriorityQueue<Vertex, Neighbor> for $T {
             fn new(n: usize, source: Vertex) -> Self {
                 $T::new(n, source)
             }
-            fn explore(&mut self, e: &Edge) {
-                let alt = self.get_dist(e.from) + e.weight;
+            fn explore(&mut self, from: Vertex, e: &Neighbor) {
+                let alt = self.get_dist(from) + e.weight;
                 if !self.expanded(e.to) && alt < self.get_dist(e.to) {
                     self.set_dist(e.to, e.weight);
                     if self.get_prev(e.to) == UNDEFINED {
@@ -270,7 +301,7 @@ macro_rules! implicit_heap {
                     } else {
                         self.bubble_up(self.lookup(e.to));
                     }
-                    self.set_prev(e.to, e.from);
+                    self.set_prev(e.to, from);
                 }
             }
 
@@ -321,26 +352,63 @@ mod tests {
                 let mut rng = thread_rng();
                 for i in 1..n {
                     let to = Vertex::try_from(i).unwrap();
-                    vertices.explore(&Edge {
-                        from: Vertex(1),
-                        weight: rng.gen_range(1..1000000),
-                        to,
-                    });
+                    vertices.explore(
+                        Vertex(1),
+                        &Neighbor {
+                            weight: rng.gen_range(1..1000000),
+                            to,
+                        },
+                    );
                 }
                 //decrease_key or extra inserts
                 for _ in 0..n {
                     let from = Vertex(1);
                     let to: Vertex = rng.gen_range(1..n).try_into().unwrap();
                     let new = vertices.get_dist(to) / 2;
-                    vertices.explore(&Edge {
-                        from,
-                        weight: new,
-                        to,
-                    });
+                    vertices.explore(from, &Neighbor { weight: new, to });
                 }
                 for _ in 0..n {
                     let popped = vertices.pop_min();
                     let value = vertices.get_dist(popped);
+                    assert!(value >= highest_min);
+                    highest_min = u32::max(highest_min, value);
+                }
+                assert!(vertices.empty());
+            }
+        };
+    }
+    macro_rules! push_pop_test_simple {
+        // using a ty token type for macthing datatypes passed to maccro
+        ($name:ident,$T:ident) => {
+            #[test]
+            fn $name() {
+                const ORIGIN: Item = Item {
+                    v: Vertex(1),
+                    dist: 0,
+                };
+                let n = 1000000;
+                let mut highest_min = 0;
+                let mut vertices = $T::new(n, Vertex(1));
+                let mut rng = thread_rng();
+                for i in 1..n {
+                    let to = Vertex::try_from(i).unwrap();
+                    vertices.explore(
+                        ORIGIN,
+                        &Neighbor {
+                            weight: rng.gen_range(1..1000000),
+                            to,
+                        },
+                    );
+                }
+                //decrease_key or extra inserts
+                for _ in 0..n {
+                    let to: Vertex = rng.gen_range(1..n).try_into().unwrap();
+                    let new = rng.gen_range(1..1000000).try_into().unwrap();
+                    vertices.explore(ORIGIN, &Neighbor { weight: new, to });
+                }
+                for _ in 0..n {
+                    let popped = vertices.pop_min();
+                    let value = popped.dist;
                     assert!(value >= highest_min);
                     highest_min = u32::max(highest_min, value);
                 }
@@ -353,8 +421,8 @@ mod tests {
     push_pop_test!(push_pop_8, OctaryHeap);
     push_pop_test!(push_pop_16, HexadecimaryHeap);
 
-    push_pop_test!(push_pop_2_simple, BinaryHeapSimple);
-    push_pop_test!(push_pop_4_simple, PentaryHeapSimple);
-    push_pop_test!(push_pop_8_simple, OctaryHeapSimple);
-    push_pop_test!(push_pop_16_simple, HexadecimaryHeapSimple);
+    push_pop_test_simple!(push_pop_2_simple, BinaryHeapSimple);
+    push_pop_test_simple!(push_pop_4_simple, PentaryHeapSimple);
+    push_pop_test_simple!(push_pop_8_simple, OctaryHeapSimple);
+    push_pop_test_simple!(push_pop_16_simple, HexadecimaryHeapSimple);
 }

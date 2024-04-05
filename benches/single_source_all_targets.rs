@@ -31,7 +31,11 @@ impl_has_type_name!(
     BinaryHeap,
     PentaryHeap,
     OctaryHeap,
-    HexadecimaryHeap
+    HexadecimaryHeap,
+    BinaryHeapSimple,
+    PentaryHeapSimple,
+    OctaryHeapSimple,
+    HexadecimaryHeapSimple
 );
 
 pub fn cmp_heap_list(c: &mut Criterion) {
@@ -45,8 +49,8 @@ pub fn cmp_heap_list(c: &mut Criterion) {
         let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
         let size = n + 1;
         let graph: NeighborList = preprocess_graph(region, size);
-        benchmark::<SimpleList, NeighborList>(rng, size, &graph, &mut group);
-        benchmark::<BinaryHeap, NeighborList>(rng, size, &graph, &mut group);
+        benchmark::<SimpleList, NeighborList, Vertex, Neighbor>(rng, size, &graph, &mut group);
+        benchmark::<BinaryHeap, NeighborList, Vertex, Neighbor>(rng, size, &graph, &mut group);
     }
     group.finish();
 }
@@ -66,35 +70,64 @@ pub fn cmp_heaps(c: &mut Criterion) {
         let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
         let size = n + 1;
         let graph: NeighborList = preprocess_graph(region, size);
-        benchmark::<BinaryHeap, NeighborList>(rng, size, &graph, &mut group);
-        benchmark::<PentaryHeap, NeighborList>(rng, size, &graph, &mut group);
-        benchmark::<OctaryHeap, NeighborList>(rng, size, &graph, &mut group);
-        benchmark::<HexadecimaryHeap, NeighborList>(rng, size, &graph, &mut group);
+        benchmark::<BinaryHeap, NeighborList, Vertex, Neighbor>(rng, size, &graph, &mut group);
+        benchmark::<PentaryHeap, NeighborList, Vertex, Neighbor>(rng, size, &graph, &mut group);
+        benchmark::<OctaryHeap, NeighborList, Vertex, Neighbor>(rng, size, &graph, &mut group);
+        benchmark::<HexadecimaryHeap, NeighborList, Vertex, Neighbor>(
+            rng, size, &graph, &mut group,
+        );
     }
     group.finish();
 }
 
-criterion_group!(benches, cmp_heaps);
+pub fn cmp_simple_heaps(c: &mut Criterion) {
+    let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
+    let smaller_regions = [
+        "USA", "CTR", "W", "E", "LKS", "CAL", "NE", "NW", "FLA", "COL", "BAY", "NY",
+    ];
+    let rng = &mut thread_rng();
+    let mut group = c.benchmark_group("Heaps");
+    group
+        .measurement_time(Duration::from_secs(60))
+        .sample_size(10)
+        .plot_config(plot_config);
+    for region in smaller_regions {
+        let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
+        let size = n + 1;
+        let graph: NeighborList = preprocess_graph(region, size);
+        benchmark::<BinaryHeapSimple, NeighborList, Item, Neighbor>(rng, size, &graph, &mut group);
+        benchmark::<PentaryHeapSimple, NeighborList, Item, Neighbor>(rng, size, &graph, &mut group);
+        benchmark::<OctaryHeapSimple, NeighborList, Item, Neighbor>(rng, size, &graph, &mut group);
+        benchmark::<HexadecimaryHeapSimple, NeighborList, Item, Neighbor>(
+            rng, size, &graph, &mut group,
+        );
+    }
+    group.finish();
+}
+
+criterion_group!(benches, cmp_simple_heaps);
 criterion_main!(benches);
 
 #[inline]
-fn preprocess_graph<E>(region: &str, n: usize) -> E
+fn preprocess_graph<S, E>(region: &str, n: usize) -> S
 where
-    E: StructuredEdges,
+    S: StructuredEdges<E>,
 {
     let edges = load_edges(Path::new(&format!("./data/{}-d.gr", region)));
-    E::new(n, edges)
+    S::new(n, edges)
 }
 
 #[inline]
-fn benchmark<Q, E>(
+fn benchmark<Q, S, I, E>(
     rng: &mut ThreadRng,
     size: usize,
-    graph: &E,
+    graph: &S,
     group: &mut BenchmarkGroup<WallTime>,
 ) where
-    Q: PriorityQueue + HasTypeName,
-    E: StructuredEdges,
+    Q: PriorityQueue<I, E> + HasTypeName,
+    S: StructuredEdges<E>,
+    I: Copy,
+    Vertex: From<I>,
 {
     group.bench_with_input(
         BenchmarkId::new(format!("{}", Q::type_name()), &size),

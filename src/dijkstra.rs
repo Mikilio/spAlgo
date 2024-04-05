@@ -1,3 +1,4 @@
+use std::slice::Iter;
 use std::usize;
 
 use crate::dimacs::*;
@@ -45,10 +46,10 @@ pub trait Dijkstra<T> {
     fn mark_seen(&mut self, v: Vertex);
 }
 
-pub trait PriorityQueue {
+pub trait PriorityQueue<I, E> {
     fn new(n: usize, source: Vertex) -> Self;
-    fn explore(&mut self, e: &Edge);
-    fn pop_min(&mut self) -> Vertex;
+    fn explore(&mut self, from: I, e: &E);
+    fn pop_min(&mut self) -> I;
     fn empty(&mut self) -> bool;
 }
 
@@ -82,7 +83,7 @@ impl Dijkstra<Vec<Vertex>> for SimpleList {
     }
 }
 
-impl PriorityQueue for SimpleList {
+impl PriorityQueue<Vertex, Neighbor> for SimpleList {
     fn new(n: usize, source: Vertex) -> Self {
         SimpleList::new(n, source)
     }
@@ -98,14 +99,14 @@ impl PriorityQueue for SimpleList {
         self.mark_seen(min);
         return min;
     }
-    fn explore(&mut self, e: &Edge) {
-        let alt = self.get_dist(e.from) + e.weight;
+    fn explore(&mut self, from: Vertex, e: &Neighbor) {
+        let alt = self.get_dist(from) + e.weight;
         if !self.expanded(e.to) && alt < self.get_dist(e.to) {
             if self.get_prev(e.to) == UNDEFINED {
                 self.get_mut_inner().push(e.to);
             }
             self.set_dist(e.to, alt);
-            self.set_prev(e.to, e.from);
+            self.set_prev(e.to, from);
         }
     }
     fn empty(&mut self) -> bool {
@@ -113,39 +114,56 @@ impl PriorityQueue for SimpleList {
     }
 }
 
-pub struct NeighborList(Vec<Vec<Edge>>);
-
-pub trait StructuredEdges {
-    fn new(n: usize, edges: impl Iterator<Item = Edge>) -> Self;
-    fn get_neighbors(&self, u: Vertex) -> impl Iterator<Item = &Edge>;
+#[derive(Clone, Copy, Debug)]
+pub struct Neighbor {
+    pub to: Vertex,
+    pub weight: u32,
 }
 
-impl StructuredEdges for NeighborList {
+impl From<Edge> for Neighbor {
+    fn from(value: Edge) -> Self {
+        Neighbor {
+            to: value.to,
+            weight: value.weight,
+        }
+    }
+}
+
+pub type NeighborList = Vec<Vec<Neighbor>>;
+
+pub trait StructuredEdges<E> {
+    fn new(n: usize, edges: impl Iterator<Item = Edge>) -> Self;
+    fn get_neighbors(&self, u: Vertex) -> Iter<E>;
+}
+
+impl StructuredEdges<Neighbor> for NeighborList {
     fn new(n: usize, edges: impl Iterator<Item = Edge>) -> Self {
-        let mut out_edges: Vec<Vec<Edge>> = vec![Vec::new(); n];
+        let mut out_edges: Vec<Vec<Neighbor>> = vec![Vec::new(); n];
 
         for e in edges {
-            out_edges[usize::from(e.from)].push(e);
+            out_edges[usize::from(e.from)].push(Neighbor::from(e));
         }
-        return NeighborList(out_edges);
+        return out_edges;
     }
-    fn get_neighbors(&self, u: Vertex) -> impl Iterator<Item = &Edge> {
-        self.0[usize::from(u)].iter()
+    fn get_neighbors(&self, u: Vertex) -> Iter<Neighbor> {
+        (&(self[usize::from(u)])).into_iter()
     }
 }
 
-pub fn dijkstra<Q, E>(mut queue: Q, edges: &E) -> Q
+pub fn dijkstra<Q, S, I, E>(mut queue: Q, edges: &S) -> Q
 where
-    Q: PriorityQueue,
-    E: StructuredEdges,
+    Q: PriorityQueue<I, E>,
+    S: StructuredEdges<E>,
+    I: Copy,
+    Vertex: From<I>,
 {
     while !queue.empty() {
         //choose next vector
         let u = queue.pop_min();
 
         // update neighbors of u
-        for e in edges.get_neighbors(u) {
-            queue.explore(&e);
+        for e in edges.get_neighbors(Vertex::from(u)) {
+            queue.explore(u, &e);
         }
     }
     return queue;
@@ -166,22 +184,19 @@ mod tests {
         //push
         for i in 1..n {
             let to = Vertex::try_from(i).unwrap();
-            vertices.explore(&Edge {
-                from: Vertex(1),
-                weight: rng.gen_range(1..1000000),
-                to,
-            });
+            vertices.explore(
+                Vertex(1),
+                &Neighbor {
+                    weight: rng.gen_range(1..1000000),
+                    to,
+                },
+            );
         }
         //decrease_key
         for _ in 0..n {
-            let from = Vertex(1);
             let to: Vertex = rng.gen_range(1..n).try_into().unwrap();
             let new = vertices.get_dist(to) / 2;
-            vertices.explore(&Edge {
-                from,
-                weight: new,
-                to,
-            });
+            vertices.explore(Vertex(1), &Neighbor { weight: new, to });
         }
         //pop
         for _ in 0..n {
