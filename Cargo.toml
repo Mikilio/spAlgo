@@ -1,3 +1,4 @@
+workspace = { members = ["macros"] }
 [package]
 name = "sp_algo"
 version = "0.1.0"
@@ -6,10 +7,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+macros = { path = "macros" }
+nohash-hasher = "0.2.0"
 
 [dev-dependencies]
 criterion = "0.3"
 rand = "0.8.4"
+
 
 [[bench]]
 name = "single_source_all_targets"

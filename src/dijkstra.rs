@@ -34,10 +34,12 @@ impl SimpleList {
     }
 }
 
-pub trait Dijkstra<T> {
+pub trait Dijkstra {
+    type Inner;
+
     fn new(n: usize, source: Vertex) -> Self;
-    fn get_inner(&self) -> &T;
-    fn get_mut_inner(&mut self) -> &mut T;
+    fn get_inner(&self) -> &Self::Inner;
+    fn get_mut_inner(&mut self) -> &mut Self::Inner;
     fn get_dist(&self, v: Vertex) -> u32;
     fn set_dist(&mut self, v: Vertex, dist: u32);
     fn get_prev(&self, v: Vertex) -> Vertex;
@@ -53,7 +55,10 @@ pub trait PriorityQueue<I, E> {
     fn empty(&mut self) -> bool;
 }
 
-impl Dijkstra<Vec<Vertex>> for SimpleList {
+impl Dijkstra for SimpleList {
+
+    type Inner = Vec<Vertex>;
+    
     fn new(n: usize, source: Vertex) -> Self {
         SimpleList::new(n, source)
     }

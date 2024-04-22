@@ -15,9 +15,11 @@ impl From<Item> for Vertex {
     }
 }
 
-pub trait Lookup: Dijkstra<Vec<Vertex>> {
-    fn lookup(&self, v: Vertex) -> usize;
-    fn update(&mut self, v: Vertex, index: usize);
+pub trait Lookup: Dijkstra {
+    type Location;
+
+    fn lookup(&self, v: Vertex) -> Self::Location;
+    fn update(&mut self, v: Vertex, index: Self::Location);
 }
 
 pub trait ImplicitHeap: Lookup {
@@ -25,7 +27,7 @@ pub trait ImplicitHeap: Lookup {
     fn bubble_down(&mut self);
 }
 
-pub trait ImplicitHeapSimple: Dijkstra<Vec<Item>> {
+pub trait ImplicitHeapSimple: Dijkstra {
     fn bubble_up(&mut self);
     fn bubble_down(&mut self);
 }
@@ -50,7 +52,9 @@ macro_rules! implicit_heap_simple {
             }
         }
 
-        impl Dijkstra<Vec<Item>> for $T {
+        impl Dijkstra for $T {
+            type Inner = Vec<Item>;
+
             fn new(n: usize, source: Vertex) -> Self {
                 $T::new(n, source)
             }
@@ -193,7 +197,9 @@ macro_rules! implicit_heap {
             }
         }
 
-        impl Dijkstra<Vec<Vertex>> for $T {
+        impl Dijkstra for $T {
+            type Inner = Vec<Vertex>;
+
             fn new(n: usize, source: Vertex) -> Self {
                 $T::new(n, source)
             }
@@ -224,6 +230,9 @@ macro_rules! implicit_heap {
         }
 
         impl Lookup for $T {
+
+            type Location = usize;
+
             fn lookup(&self, v: Vertex) -> usize {
                 self.hlookup[usize::from(v)]
             }

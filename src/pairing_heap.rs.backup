@@ -1,0 +1,151 @@
+extern crate macros;
+use ::macros::Tree;
+
+use std::{
+    cell::{Cell, RefCell},
+    collections::{LinkedList, VecDeque},
+    iter::once,
+    rc::Rc,
+};
+
+use crate::{
+    dijkstra::Dijkstra,
+    dimacs::{Vertex, UNDEFINED},
+    implicit_heaps::Lookup,
+};
+
+type Link<T> = Rc<RefCell<T>>;
+
+#[derive(Tree)]
+struct ListTree {
+    elem: Vertex,
+    parent: Option<Link<ListTree>>,
+    subtrees: LinkedList<Link<ListTree>>,
+}
+
+#[derive(Tree)]
+struct VecTree {
+    elem: Vertex,
+    parent: Option<Link<VecTree>>,
+    subtrees: Vec<Link<VecTree>>,
+}
+
+#[derive(Tree)]
+struct VecDequeTree {
+    elem: Vertex,
+    parent: Option<Link<VecDequeTree>>,
+    subtrees: VecDeque<Link<VecDequeTree>>,
+}
+
+trait Tree {
+    type Item;
+
+    fn new(v: Vertex) -> Self;
+    fn elem(&self) -> Vertex;
+    fn parent(&self) -> Option<Link<Self>>;
+    fn mend(a_tree: Link<Self>, b_tree: Link<Self>, a: u32, b: u32) -> Link<Self>;
+}
+
+struct Heap<T: Tree> {
+    tree: Link<T>,
+    hlookup: Vec<Option<Rc<RefCell<T>>>>,
+    dist: Vec<u32>,
+    prev: Vec<Vertex>,
+    seen: Vec<bool>,
+}
+
+impl<T: Tree> Dijkstra for Heap<T> {
+    type Inner = Link<T>;
+
+    fn new(n: usize, source: Vertex) -> Self {
+        let tree = Rc::new(RefCell::new(T::new(source)));
+        let mut dist = vec![u32::MAX; n];
+        dist[usize::from(source)] = 0;
+        Heap::<T> {
+            tree,
+            hlookup: vec![None; n],
+            dist,
+            prev: vec![UNDEFINED; n],
+            seen: vec![false; n],
+        }
+    }
+    fn get_inner(&self) -> &Self::Inner {
+        &self.tree
+    }
+    fn get_mut_inner(&mut self) -> &mut Self::Inner {
+        &mut self.tree
+    }
+    fn get_dist(&self, v: Vertex) -> u32 {
+        self.dist[usize::from(v)]
+    }
+    fn set_dist(&mut self, v: Vertex, dist: u32) {
+        self.dist[usize::from(v)] = dist;
+    }
+    fn get_prev(&self, v: Vertex) -> Vertex {
+        self.prev[usize::from(v)]
+    }
+    fn set_prev(&mut self, v: Vertex, prev: Vertex) {
+        self.prev[usize::from(v)] = prev;
+    }
+    fn expanded(&self, v: Vertex) -> bool {
+        self.seen[usize::from(v)]
+    }
+    fn mark_seen(&mut self, v: Vertex) {
+        self.seen[usize::from(v)] = true;
+    }
+}
+impl<T: Tree> Lookup for Heap<T> {
+    type Location = Option<Link<T>>;
+
+    fn lookup(&self, v: Vertex) -> Self::Location {
+        match &self.hlookup[usize::from(v)] {
+            Some(location) => Some(location.clone()),
+            None => None,
+        }
+    }
+    fn update(&mut self, v: Vertex, index: Self::Location) {
+        self.hlookup[usize::from(v)] = index
+    }
+}
+
+trait PairingHeap: Dijkstra {
+    type Tree: Tree;
+
+    fn insert(&mut self, v: Vertex);
+    fn delete_min(&mut self);
+    fn decrease_key(&mut self, v: Vertex, new: u32);
+}
+
+impl<T: Tree> PairingHeap for Heap<T> {
+    type Tree = T;
+
+    fn insert(&mut self, v: Vertex) {
+        let new_tree = Rc::new(RefCell::new(T::new(v)));
+        let u = self.tree.borrow_mut().elem();
+        Tree::mend(
+            self.tree.clone(),
+            new_tree,
+            self.get_dist(u),
+            self.get_dist(v),
+        );
+    }
+
+    fn delete_min(&mut self) {
+        todo!()
+    }
+
+    fn decrease_key(&mut self, v: Vertex, new: u32) {
+        match self.lookup(v) {
+            Some(child) => {
+                if let Some(parent) = child.borrow().parent() {
+                    let parent_dist = self.get_dist(parent.borrow().elem());
+                    let child_dist = self.get_dist(child.borrow().elem());
+                    if child_dist > parent_dist {
+                        //reset branch
+                    }
+                }
+            }
+            None => { /*insert a new one*/ }
+        }
+    }
+}
