@@ -1,15 +1,12 @@
-use nohash_hasher::{IsEnabled, NoHashHasher};
 use std::{
     cell::RefCell,
-    collections::{
-        hash_map::Entry::{Occupied, Vacant},
-        HashMap,
-    },
-    hash::BuildHasherDefault,
     rc::Rc,
 };
 
-use crate::{dijkstra::Neighbor, dimacs::Vertex};
+use crate::{
+    dijkstra::*,
+    dimacs::Vertex,
+};
 
 type Link<T> = Option<Rc<RefCell<T>>>;
 
@@ -24,7 +21,7 @@ struct Node {
 
 impl From<Vertex> for Link<Node> {
     fn from(value: Vertex) -> Self {
-        Some(Rc::new(RefCell::new( Node {
+        Some(Rc::new(RefCell::new(Node {
             id: value,
             key: 0,
             parent: None,
@@ -88,7 +85,9 @@ impl PriorityQueue for PairingHeap {
         self.aux = new;
         self.aux.clone()
     }
+}
 
+impl DecreaseKey for PairingHeap {
     fn decrease_key(&mut self, of: Self::RefType, key: Self::Key) {
         //panics if link is empty
         let target = of.unwrap();
@@ -103,9 +102,9 @@ impl PriorityQueue for PairingHeap {
 }
 
 fn merge_pair(first: Link<Node>) -> Link<Node> {
-   let (a,b) = if let Some(a) = first {
+    let (a, b) = if let Some(a) = first {
         if let Some(b) = &a.borrow().next {
-            (a.clone(),b.clone())
+            (a.clone(), b.clone())
         } else {
             return Some(a.clone());
         }
@@ -213,69 +212,16 @@ fn two_pass_reverse(start: Link<Node>) -> Link<Node> {
     }
 }
 
-pub trait PriorityQueue: From<Vertex> {
-    type RefType: From<Vertex> + Clone;
-    type Key: From<u32> + Into<u32> + IsEnabled + Copy;
-    type Value: From<Vertex> + Into<Vertex> + Copy;
-
-    fn is_empty(&self) -> bool;
-    fn pop(&mut self) -> (Self::Key, Self::Value);
-    fn push(&mut self, key: Self::Key, value: Self::Value) -> Self::RefType;
-    fn decrease_key(&mut self, of: Self::RefType, key: Self::Key);
-}
-
-pub struct Dijkstra<T: PriorityQueue> {
-    pub queue: T,
-    pub meta: HashMap<Vertex, (T::RefType, T::Key, T::Value), BuildHasherDefault<NoHashHasher<T::Key>>>,
-}
-
-impl<T: PriorityQueue> Dijkstra<T> {
-    pub fn new(n: usize, source: Vertex) -> Self {
-        let item = (T::RefType::from(source),T::Key::from(0),T::Value::from(source));
-        let mut map =HashMap::with_capacity_and_hasher(n, BuildHasherDefault::default()); 
-        map.insert(source, item);
-        Self {
-            queue: T::from(source),
-            meta: map,
-        }
-    }
-    pub fn explore(&mut self, from: T::Value, key: T::Key, e: &Neighbor) {
-        let alt: u32 = key.into() + e.weight;
-        let explored = self.meta.entry(e.to.into());
-        match explored {
-            Occupied(mut entry) => {
-                let (link, dist, prev) = entry.get_mut();
-                if alt < (*dist).into() {
-                    self.queue.decrease_key(link.clone(), alt.into());
-                    *dist = alt.into();
-                    *prev = from;
-                }
-            }
-            Vacant(entry) => {
-                let link = self.queue.push(alt.into(), e.to.into());
-                entry.insert((link, alt.into(), from));
-            }
-        }
-    }
-
-    pub fn pop_min(&mut self) -> T::Value {
-        let (_, val) = self.queue.pop();
-        return val;
-    }
-    pub fn is_empty(&mut self) -> bool {
-        self.queue.is_empty()
-    }
-}
-
 #[cfg(test)]
 mod tests {
+
+    use crate::dijkstra::Search;
 
     use super::*;
     use rand::{thread_rng, Rng};
 
     #[test]
     fn simple_merge() {
-
         let mut heap = PairingHeap::from(Vertex(1));
         heap.push(1, Vertex(2));
         heap.push(2, Vertex(3));
@@ -286,7 +232,7 @@ mod tests {
     fn push_pop_pairing_heap() {
         let n = 10000;
         let mut highest_min = 0;
-        let mut dijkstra: Dijkstra<PairingHeap> = Dijkstra::new(n, Vertex(1));
+        let mut dijkstra: Search<PairingHeap> = Search::new(n, Vertex(1));
         let mut rng = thread_rng();
         //push
         for i in 1..n {
@@ -305,12 +251,16 @@ mod tests {
             let to: Vertex = rng.gen_range(1..n).try_into().unwrap();
             let (_, key, _) = dijkstra.meta.get(&to).unwrap();
             let key = key / 2;
-            dijkstra.explore(Vertex(1),0, &Neighbor { weight: key, to });
+            dijkstra.explore(Vertex(1), 0, &Neighbor { weight: key, to });
         }
         //pop
         for _ in 0..n {
-            let popped = dijkstra.pop_min();
-            let (_,key,_) = dijkstra.meta.remove(&popped).expect(&format!("popped {:?}", &popped));
+            let (key,popped) = dijkstra.pop_min();
+            let (_, stored_key, _) = dijkstra
+                .meta
+                .remove(&popped)
+                .expect(&format!("popped {:?}", &popped));
+            assert_eq!(key, stored_key);
             assert!(key >= highest_min);
             highest_min = u32::max(highest_min, key);
         }

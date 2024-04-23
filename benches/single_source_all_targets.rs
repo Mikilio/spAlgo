@@ -49,8 +49,8 @@ pub fn cmp_heap_list(c: &mut Criterion) {
         let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
         let size = n + 1;
         let graph: NeighborList = preprocess_graph(region, size);
-        benchmark::<SimpleList, NeighborList, Vertex, Neighbor>(rng, size, &graph, &mut group);
-        benchmark::<BinaryHeap, NeighborList, Vertex, Neighbor>(rng, size, &graph, &mut group);
+        benchmark_no_lookup::<SimpleList>(rng, size, &graph, &mut group);
+        benchmark_lookup::<BinaryHeap>(rng, size, &graph, &mut group);
     }
     group.finish();
 }
@@ -70,10 +70,10 @@ pub fn cmp_heaps(c: &mut Criterion) {
         let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
         let size = n + 1;
         let graph: NeighborList = preprocess_graph(region, size);
-        benchmark::<BinaryHeap, NeighborList, Vertex, Neighbor>(rng, size, &graph, &mut group);
-        benchmark::<PentaryHeap, NeighborList, Vertex, Neighbor>(rng, size, &graph, &mut group);
-        benchmark::<OctaryHeap, NeighborList, Vertex, Neighbor>(rng, size, &graph, &mut group);
-        benchmark::<HexadecimaryHeap, NeighborList, Vertex, Neighbor>(
+        benchmark_lookup::<BinaryHeap>(rng, size, &graph, &mut group);
+        benchmark_lookup::<PentaryHeap>(rng, size, &graph, &mut group);
+        benchmark_lookup::<OctaryHeap>(rng, size, &graph, &mut group);
+        benchmark_lookup::<HexadecimaryHeap>(
             rng, size, &graph, &mut group,
         );
     }
@@ -95,10 +95,10 @@ pub fn cmp_simple_heaps(c: &mut Criterion) {
         let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
         let size = n + 1;
         let graph: NeighborList = preprocess_graph(region, size);
-        benchmark::<BinaryHeapSimple, NeighborList, Item, Neighbor>(rng, size, &graph, &mut group);
-        benchmark::<PentaryHeapSimple, NeighborList, Item, Neighbor>(rng, size, &graph, &mut group);
-        benchmark::<OctaryHeapSimple, NeighborList, Item, Neighbor>(rng, size, &graph, &mut group);
-        benchmark::<HexadecimaryHeapSimple, NeighborList, Item, Neighbor>(
+        benchmark_no_lookup::<BinaryHeapSimple>(rng, size, &graph, &mut group);
+        benchmark_no_lookup::<PentaryHeapSimple>(rng, size, &graph, &mut group);
+        benchmark_no_lookup::<OctaryHeapSimple>(rng, size, &graph, &mut group);
+        benchmark_no_lookup::<HexadecimaryHeapSimple>(
             rng, size, &graph, &mut group,
         );
     }
@@ -109,33 +109,50 @@ criterion_group!(benches, cmp_simple_heaps);
 criterion_main!(benches);
 
 #[inline]
-fn preprocess_graph<S, E>(region: &str, n: usize) -> S
-where
-    S: StructuredEdges<E>,
+fn preprocess_graph (region: &str, n: usize) -> NeighborList
 {
     let edges = load_edges(Path::new(&format!("./data/{}-d.gr", region)));
-    S::new(n, edges)
+    StructuredEdges::new(n, edges)
 }
 
 #[inline]
-fn benchmark<Q, S, I, E>(
+fn benchmark_lookup<Q>(
     rng: &mut ThreadRng,
     size: usize,
-    graph: &S,
+    graph: &NeighborList,
     group: &mut BenchmarkGroup<WallTime>,
 ) where
-    Q: PriorityQueue<I, E> + HasTypeName,
-    S: StructuredEdges<E>,
-    I: Copy,
-    Vertex: From<I>,
+    Q: DecreaseKey + HasTypeName,
 {
     group.bench_with_input(
         BenchmarkId::new(format!("{}", Q::type_name()), &size),
         &size,
         |b, &size| {
             b.iter_batched(
-                || Q::new(size, rng.gen_range(0..size).try_into().unwrap()),
-                |queue| dijkstra(queue, graph),
+                || Search::<Q>::new(size, rng.gen_range(0..size).try_into().unwrap()),
+                |queue| sssp(queue, graph),
+                criterion::BatchSize::LargeInput,
+            );
+        },
+    );
+}
+
+#[inline]
+fn benchmark_no_lookup<Q>(
+    rng: &mut ThreadRng,
+    size: usize,
+    graph: &NeighborList,
+    group: &mut BenchmarkGroup<WallTime>,
+) where
+    Q: PriorityQueue + HasTypeName,
+{
+    group.bench_with_input(
+        BenchmarkId::new(format!("{}", Q::type_name()), &size),
+        &size,
+        |b, &size| {
+            b.iter_batched(
+                || NoLookup::<Q>::new(size, rng.gen_range(0..size).try_into().unwrap()),
+                |queue| sssp(queue, graph),
                 criterion::BatchSize::LargeInput,
             );
         },
