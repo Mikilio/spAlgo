@@ -17,13 +17,21 @@ pub fn derive_answer_fn(input: TokenStream) -> TokenStream {
             });
 
             let name = input.ident;
-            let (insert, remove) = if let Some(_) = lookup {
+            let (insert, update, remove) = if let Some(_) = lookup {
                 (
                     quote!(self.lookup.insert(value,end);),
+                    quote!(
+                        let last = self.inner
+                            .last()
+                            .expect("pop_min called even though heap was empty")
+                            .clone()
+                            .value;
+                        self.lookup.insert(last, 0);
+                    ),
                     quote!(self.lookup.remove(&min.value);),
                 )
             } else {
-                (quote!(), quote!())
+                (quote!(), quote!(), quote!())
             };
 
             return TokenStream::from(quote!(
@@ -34,17 +42,24 @@ pub fn derive_answer_fn(input: TokenStream) -> TokenStream {
 
                     type Value = Vertex;
 
+                    #[inline]
                     fn is_empty(&self) -> bool {
                         self.inner.is_empty()
                     }
 
-                    fn pop(&mut self) -> (Self::Key, Self::Value) {
+                    #[inline]
+                    fn pop(&mut self) -> Option<(Self::Key, Self::Value)> {
+                        if self.is_empty() {
+                            return None;
+                        }
+                        #update
                         let min = self.inner.swap_remove(0);
-                        self.bubble_down();
                         #remove
-                        return (min.key, min.value);
+                        self.bubble_down();
+                        return Some((min.key, min.value));
                     }
 
+                    #[inline]
                     fn push(&mut self, key: Self::Key, value: Self::Value) -> Self::RefType {
                         self.inner.push(Item { key, value });
                         let end = self.inner.len() - 1;

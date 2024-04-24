@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::num::TryFromIntError;
 use std::{
     fs::File,
@@ -6,16 +7,21 @@ use std::{
     os::unix::fs::FileExt,
     path::Path,
     str::FromStr,
+    vec::Vec,
 };
 
 #[derive(Hash, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Vertex(pub u32);
+
+#[derive(Debug)]
+pub struct Route(pub Vec<Vertex>);
 
 pub const UNDEFINED: Vertex = Vertex(0);
 
 impl FromStr for Vertex {
     type Err = ParseIntError;
 
+    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match u32::from_str(s) {
             Ok(v) => Ok(Vertex(v)),
@@ -27,6 +33,7 @@ impl FromStr for Vertex {
 impl TryFrom<usize> for Vertex {
     type Error = TryFromIntError;
 
+    #[inline]
     fn try_from(value: usize) -> Result<Self, Self::Error> {
         match u32::try_from(value) {
             Ok(index) => Ok(Vertex(index + 1)),
@@ -36,8 +43,28 @@ impl TryFrom<usize> for Vertex {
 }
 
 impl From<Vertex> for usize {
+    #[inline]
     fn from(value: Vertex) -> Self {
         (value.0 as usize) - 1
+    }
+}
+
+impl Display for Vertex {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({})", self.0)
+    }
+}
+
+impl Display for Route {
+    #[inline]
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut iter = self.0.iter().rev();
+        write!(f, "{}", iter.next().unwrap())?;
+        for vertex in iter {
+            write!(f, "->{}", vertex)?;
+        }
+        write!(f, "")
     }
 }
 
@@ -65,6 +92,7 @@ pub struct ParseEdgeError {
 impl FromStr for Edge {
     type Err = ParseEdgeError;
 
+    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut fields = s.split_whitespace();
         let Some("a") = fields.next() else {
@@ -110,6 +138,7 @@ pub struct VertexCoord {
 impl FromStr for VertexCoord {
     type Err = ParseVertexError;
 
+    #[inline]
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut fields = s.split_whitespace();
         let Some("v") = fields.next() else {
@@ -142,6 +171,7 @@ impl FromStr for VertexCoord {
     }
 }
 
+#[inline]
 pub fn load_edges(path: &Path) -> impl Iterator<Item = Edge> {
     let display = path.display();
     // Open the path in read-only mode, returns `io::Result<File>`
@@ -167,6 +197,7 @@ pub fn load_edges(path: &Path) -> impl Iterator<Item = Edge> {
         })
 }
 
+#[inline]
 pub fn load_coordinates(path: &Path) -> impl Iterator<Item = Coordinates> {
     let display = path.display();
     // Open the path in read-only mode, returns `io::Result<File>`
@@ -192,6 +223,7 @@ pub fn load_coordinates(path: &Path) -> impl Iterator<Item = Coordinates> {
         })
 }
 
+#[inline]
 pub fn load_max_vertex(path: &Path) -> Vertex {
     let display = path.display();
     // Open the path in read-only mode, returns `io::Result<File>`

@@ -6,7 +6,7 @@ use criterion::{
 use rand::rngs::ThreadRng;
 use rand::thread_rng;
 use rand::Rng;
-use sp_algo::{dijkstra::*, dimacs::*, implicit_heaps::*};
+use sp_algo::{dijkstra::*, dimacs::*, implicit_heaps::*, pairing_heap::*};
 use std::path::Path;
 use std::time::Duration;
 
@@ -35,7 +35,8 @@ impl_has_type_name!(
     BinaryHeapSimple,
     PentaryHeapSimple,
     OctaryHeapSimple,
-    HexadecimaryHeapSimple
+    HexadecimaryHeapSimple,
+    PairingHeap,
 );
 
 pub fn cmp_heap_list(c: &mut Criterion) {
@@ -49,8 +50,31 @@ pub fn cmp_heap_list(c: &mut Criterion) {
         let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
         let size = n + 1;
         let graph: NeighborList = preprocess_graph(region, size);
-        benchmark_no_lookup::<SimpleList>(rng, size, &graph, &mut group);
-        benchmark_lookup::<BinaryHeap>(rng, size, &graph, &mut group);
+        benchmark::<SimpleList>(rng, size, &graph, &mut group);
+        benchmark::<BinaryHeap>(rng, size, &graph, &mut group);
+    }
+    group.finish();
+}
+
+pub fn cmp_implicit_heaps(c: &mut Criterion) {
+    let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
+    let smaller_regions = [
+        /*"USA", "CTR", "W", "E", "LKS", "CAL", "NE", "NW", "FLA",*/ "COL", "BAY", "NY",
+    ];
+    let rng = &mut thread_rng();
+    let mut group = c.benchmark_group("Heaps");
+    group
+        .measurement_time(Duration::from_secs(60))
+        .sample_size(10)
+        .plot_config(plot_config);
+    for region in smaller_regions {
+        let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
+        let size = n + 1;
+        let graph: NeighborList = preprocess_graph(region, size);
+        benchmark::<BinaryHeap>(rng, size, &graph, &mut group);
+        benchmark::<PentaryHeap>(rng, size, &graph, &mut group);
+        benchmark::<OctaryHeap>(rng, size, &graph, &mut group);
+        benchmark::<HexadecimaryHeap>(rng, size, &graph, &mut group);
     }
     group.finish();
 }
@@ -58,7 +82,7 @@ pub fn cmp_heap_list(c: &mut Criterion) {
 pub fn cmp_heaps(c: &mut Criterion) {
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
     let smaller_regions = [
-        "USA", "CTR", "W", "E", "LKS", "CAL", "NE", "NW", "FLA", "COL", "BAY", "NY",
+        /*"USA", "CTR", "W", "E", "LKS", "CAL", "NE", "NW", "FLA",*/ "COL", "BAY", "NY",
     ];
     let rng = &mut thread_rng();
     let mut group = c.benchmark_group("Heaps");
@@ -70,12 +94,9 @@ pub fn cmp_heaps(c: &mut Criterion) {
         let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
         let size = n + 1;
         let graph: NeighborList = preprocess_graph(region, size);
-        benchmark_lookup::<BinaryHeap>(rng, size, &graph, &mut group);
-        benchmark_lookup::<PentaryHeap>(rng, size, &graph, &mut group);
-        benchmark_lookup::<OctaryHeap>(rng, size, &graph, &mut group);
-        benchmark_lookup::<HexadecimaryHeap>(
-            rng, size, &graph, &mut group,
-        );
+        benchmark::<PentaryHeap>(rng, size, &graph, &mut group);
+        benchmark::<PentaryHeapSimple>(rng, size, &graph, &mut group);
+        benchmark::<PairingHeap>(rng, size, &graph, &mut group);
     }
     group.finish();
 }
@@ -83,7 +104,7 @@ pub fn cmp_heaps(c: &mut Criterion) {
 pub fn cmp_simple_heaps(c: &mut Criterion) {
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
     let smaller_regions = [
-        "USA", "CTR", "W", "E", "LKS", "CAL", "NE", "NW", "FLA", "COL", "BAY", "NY",
+        /*"USA", "CTR", "W", "E", "LKS", "CAL", "NE", "NW", "FLA",*/ "COL", "BAY", "NY",
     ];
     let rng = &mut thread_rng();
     let mut group = c.benchmark_group("Heaps");
@@ -95,63 +116,38 @@ pub fn cmp_simple_heaps(c: &mut Criterion) {
         let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
         let size = n + 1;
         let graph: NeighborList = preprocess_graph(region, size);
-        benchmark_no_lookup::<BinaryHeapSimple>(rng, size, &graph, &mut group);
-        benchmark_no_lookup::<PentaryHeapSimple>(rng, size, &graph, &mut group);
-        benchmark_no_lookup::<OctaryHeapSimple>(rng, size, &graph, &mut group);
-        benchmark_no_lookup::<HexadecimaryHeapSimple>(
-            rng, size, &graph, &mut group,
-        );
+        benchmark::<BinaryHeapSimple>(rng, size, &graph, &mut group);
+        benchmark::<PentaryHeapSimple>(rng, size, &graph, &mut group);
+        benchmark::<OctaryHeapSimple>(rng, size, &graph, &mut group);
+        benchmark::<HexadecimaryHeapSimple>(rng, size, &graph, &mut group);
     }
     group.finish();
 }
 
-criterion_group!(benches, cmp_simple_heaps);
+criterion_group!(benches, cmp_heaps);
 criterion_main!(benches);
 
 #[inline]
-fn preprocess_graph (region: &str, n: usize) -> NeighborList
-{
+fn preprocess_graph(region: &str, n: usize) -> NeighborList {
     let edges = load_edges(Path::new(&format!("./data/{}-d.gr", region)));
     StructuredEdges::new(n, edges)
 }
 
 #[inline]
-fn benchmark_lookup<Q>(
+fn benchmark<Q>(
     rng: &mut ThreadRng,
     size: usize,
     graph: &NeighborList,
     group: &mut BenchmarkGroup<WallTime>,
 ) where
-    Q: DecreaseKey + HasTypeName,
+    Q: PriorityQueue + HasTypeName + InitDijkstra,
 {
     group.bench_with_input(
         BenchmarkId::new(format!("{}", Q::type_name()), &size),
         &size,
         |b, &size| {
             b.iter_batched(
-                || Search::<Q>::new(size, rng.gen_range(0..size).try_into().unwrap()),
-                |queue| sssp(queue, graph),
-                criterion::BatchSize::LargeInput,
-            );
-        },
-    );
-}
-
-#[inline]
-fn benchmark_no_lookup<Q>(
-    rng: &mut ThreadRng,
-    size: usize,
-    graph: &NeighborList,
-    group: &mut BenchmarkGroup<WallTime>,
-) where
-    Q: PriorityQueue + HasTypeName,
-{
-    group.bench_with_input(
-        BenchmarkId::new(format!("{}", Q::type_name()), &size),
-        &size,
-        |b, &size| {
-            b.iter_batched(
-                || NoLookup::<Q>::new(size, rng.gen_range(0..size).try_into().unwrap()),
+                || Q::init_dijkstra(rng.gen_range(0..size).try_into().unwrap(), size),
                 |queue| sssp(queue, graph),
                 criterion::BatchSize::LargeInput,
             );

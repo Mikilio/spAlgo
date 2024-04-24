@@ -1,5 +1,4 @@
-use crate::dijkstra::DecreaseKey;
-use crate::dijkstra::{Item, PriorityQueue};
+use crate::dijkstra::{DecreaseKey, InitDijkstra, Item, NoLookup, OwnedLookup, PriorityQueue};
 use crate::dimacs::*;
 use macros::PriorityQueue;
 use nohash_hasher::NoHashHasher;
@@ -14,6 +13,7 @@ macro_rules! implicit_heap_simple {
         }
 
         impl From<Vertex> for $T {
+            #[inline]
             fn from(value: Vertex) -> Self {
                 let mut inner = Vec::new();
                 inner.push(Item { key: 0, value });
@@ -21,7 +21,12 @@ macro_rules! implicit_heap_simple {
             }
         }
 
+        impl InitDijkstra for $T {
+            type Data = NoLookup<Self>;
+        }
+
         impl $T {
+            #[inline]
             fn bubble_up(&mut self, dirt: usize) {
                 let mut child = dirt;
 
@@ -39,6 +44,7 @@ macro_rules! implicit_heap_simple {
                 }
             }
 
+            #[inline]
             fn bubble_down(&mut self) {
                 let mut parent = 0;
                 let n = self.inner.len();
@@ -83,6 +89,7 @@ macro_rules! implicit_heap {
         }
 
         impl From<Vertex> for $T {
+            #[inline]
             fn from(value: Vertex) -> Self {
                 let mut inner = Vec::new();
                 let mut lookup = HashMap::with_hasher(BuildHasherDefault::default());
@@ -92,7 +99,12 @@ macro_rules! implicit_heap {
             }
         }
 
+        impl InitDijkstra for $T {
+            type Data = OwnedLookup<Self>;
+        }
+
         impl DecreaseKey for $T {
+            #[inline]
             fn decrease_key(&mut self, of: Self::RefType, key: Self::Key) {
                 let index = self.lookup.get(&of).unwrap();
                 let item = &mut self.inner[*index];
@@ -102,6 +114,7 @@ macro_rules! implicit_heap {
         }
 
         impl $T {
+            #[inline]
             fn bubble_up(&mut self, dirt: usize) {
                 let mut child = dirt;
 
@@ -121,6 +134,7 @@ macro_rules! implicit_heap {
                 }
             }
 
+            #[inline]
             fn bubble_down(&mut self) {
                 let mut parent = 0;
                 let n = self.inner.len();
@@ -183,7 +197,7 @@ mod tests {
             fn $name() {
                 let n = 10000;
                 let mut highest_min = 0;
-                let mut dijkstra: OwnedLookup<$T> = OwnedLookup::new(n, Vertex(1));
+                let mut dijkstra: OwnedLookup<$T> = OwnedLookup::from((Vertex(1), n));
                 let mut rng = thread_rng();
                 //push
                 for i in 1..n {
@@ -206,15 +220,13 @@ mod tests {
                 }
                 //pop
                 for _ in 0..n {
-                    let (key, popped) = dijkstra.pop_min();
-                    println!("here was {:?}", &popped);
+                    let (key, popped) = dijkstra.pop_min().unwrap();
                     let (stored_key, _) = dijkstra.meta.get(&popped).unwrap();
-                    println!("popped {:?}", &popped);
                     assert_eq!(key, *stored_key);
                     assert!(key >= highest_min);
                     highest_min = u32::max(highest_min, key);
                 }
-                assert!(dijkstra.is_empty());
+                assert_eq!(dijkstra.pop_min(), None);
             }
         };
     }
@@ -230,7 +242,7 @@ mod tests {
             fn $name() {
                 let n = 10000;
                 let mut highest_min = 0;
-                let mut dijkstra: NoLookup<SimpleList> = NoLookup::new(n, Vertex(1));
+                let mut dijkstra: NoLookup<SimpleList> = NoLookup::from((Vertex(1), n));
                 let mut rng = thread_rng();
                 //push
                 for i in 1..n {
@@ -251,17 +263,15 @@ mod tests {
                     dijkstra.explore(Vertex(1), 0, &Neighbor { weight: key, to });
                 }
                 //pop
-                for i in 0..n {
-                    let (key, popped) = dijkstra.pop_min();
+                for _ in 0..n {
+                    let (key, popped) = dijkstra.pop_min().unwrap();
                     let (stored_key, _) = dijkstra.meta.get(&popped).unwrap();
                     assert_eq!(key, stored_key.unwrap());
-                    println!("x={} on n = {}", key, i);
                     assert!(key >= highest_min);
                     highest_min = u32::max(highest_min, key);
                 }
 
-                assert_eq!((0, Vertex(0)), dijkstra.pop_min());
-                assert!(dijkstra.is_empty());
+                assert_eq!(None, dijkstra.pop_min());
             }
         };
     }

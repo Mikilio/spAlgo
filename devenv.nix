@@ -5,9 +5,15 @@
   env.GREET = "devenv";
 
   # https://devenv.sh/packages/
-  packages = with pkgs; [ git curl gzip gnuplot];
+  packages = with pkgs; [ gdb git curl gzip gnuplot];
 
   # https://devenv.sh/scripts/
+  scripts.prepare-tests = {
+    exec = ''
+      touch ./test/NY.distances
+      RUST_BACKTRACE=1 cargo test -- sssp_test_binary
+    '';
+  };
   scripts.pull-data = {
     exec = ''
       if [[ ( $@ == "--help") ||  ($@ == "-h") || ($# -ne 1)]]
@@ -51,11 +57,9 @@
 
   # https://devenv.sh/languages/
   languages.nix.enable = true;
-  languages.python.enable = true;
-  languages.python.version = "3.12.2";
 
   languages.rust.enable = true;
-  languages.rust.channel = "stable";
+  languages.rust.channel = "nixpkgs";
 
   # https://devenv.sh/pre-commit-hooks/
   # pre-commit.hooks.shellcheck.enable = true;

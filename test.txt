@@ -1,0 +1,241 @@
+
+running 1 test
+not here
+popped (0, Vertex(1))
+pushed (2) dist:803 prev:Vertex(1)
+pushed (12) dist:842 prev:Vertex(1)
+pushed (1363) dist:2428 prev:Vertex(1)
+not here
+popped (803, Vertex(2))
+already checked (1)
+pushed (13) dist:1394 prev:Vertex(2)
+pushed (48) dist:1420 prev:Vertex(2)
+not here
+popped (842, Vertex(12))
+already checked (1)
+not here
+popped (1394, Vertex(13))
+already checked (2)
+not here
+popped (1420, Vertex(48))
+already checked (2)
+not here
+popped (2428, Vertex(1363))
+already checked (1)
+pushed (1358) dist:3606 prev:Vertex(1363)
+pushed (1364) dist:3523 prev:Vertex(1363)
+not here
+popped (3523, Vertex(1364))
+already checked (1363)
+pushed (1365) dist:5264 prev:Vertex(1364)
+pushed (1366) dist:4038 prev:Vertex(1364)
+not here
+popped (3606, Vertex(1358))
+pushed (1355) dist:5433 prev:Vertex(1358)
+pushed (1357) dist:4495 prev:Vertex(1358)
+already checked (1363)
+not here
+popped (4038, Vertex(1366))
+already checked (1364)
+pushed (1367) dist:5649 prev:Vertex(1366)
+pushed (1369) dist:4373 prev:Vertex(1366)
+not here
+popped (4373, Vertex(1369))
+already checked (1366)
+pushed (1370) dist:6412 prev:Vertex(1369)
+pushed (1403) dist:6376 prev:Vertex(1369)
+not here
+popped (4495, Vertex(1357))
+pushed (1356) dist:5524 prev:Vertex(1357)
+already checked (1358)
+pushed (1359) dist:4733 prev:Vertex(1357)
+not here
+popped (4733, Vertex(1359))
+already checked (1357)
+pushed (1280) dist:5400 prev:Vertex(1359)
+not here
+popped (5264, Vertex(1365))
+already checked (1364)
+not here
+popped (5400, Vertex(1280))
+pushed (1278) dist:9925 prev:Vertex(1280)
+already checked (1359)
+pushed (1287) dist:6400 prev:Vertex(1280)
+not here
+popped (5433, Vertex(1355))
+pushed (1274) dist:6544 prev:Vertex(1355)
+pushed (1354) dist:6381 prev:Vertex(1355)
+already checked (1358)
+pushed (1360) dist:6791 prev:Vertex(1355)
+not here
+popped (5524, Vertex(1356))
+pushed (1276) dist:6529 prev:Vertex(1356)
+already checked (1357)
+not here
+popped (5649, Vertex(1367))
+already checked (1359)
+pushed (1368) dist:8094 prev:Vertex(1367)
+already checked (1366)
+not here
+popped (6376, Vertex(1403))
+pushed (1401) dist:8276 prev:Vertex(1403)
+already checked (1369)
+pushed (1406) dist:7854 prev:Vertex(1403)
+not here
+popped (6381, Vertex(1354))
+pushed (1275) dist:7264 prev:Vertex(1354)
+already checked (1356)
+already checked (1355)
+not here
+popped (6400, Vertex(1287))
+pushed (1288) dist:9074 prev:Vertex(1287)
+already checked (1280)
+pushed (1371) dist:7622 prev:Vertex(1287)
+not here
+popped (6412, Vertex(1370))
+already checked (1369)
+pushed (1407) dist:7484 prev:Vertex(1370)
+pushed (1408) dist:7634 prev:Vertex(1370)
+not here
+popped (6529, Vertex(1276))
+pushed (1272) dist:9623 prev:Vertex(1276)
+pushed (1273) dist:7874 prev:Vertex(1276)
+already checked (1356)
+not here
+popped (6544, Vertex(1274))
+pushed (1143) dist:8699 prev:Vertex(1274)
+pushed (1183) dist:7648 prev:Vertex(1274)
+already checked (1355)
+not here
+popped (6791, Vertex(1360))
+pushed (1361) dist:8823 prev:Vertex(1360)
+already checked (1355)
+pushed (1362) dist:7243 prev:Vertex(1360)
+not here
+popped (7243, Vertex(1362))
+already checked (1360)
+not here
+popped (7264, Vertex(1275))
+(1272) is occupied dist:8269 prev:Vertex(1276)
+not in deckey
+already checked (1354)
+not here
+popped (7484, Vertex(1407))
+already checked (1370)
+pushed (6427) dist:8184 prev:Vertex(1407)
+not here
+popped (7622, Vertex(1371))
+pushed (1372) dist:9385 prev:Vertex(1371)
+already checked (1287)
+pushed (1373) dist:8733 prev:Vertex(1371)
+not here
+popped (7634, Vertex(1408))
+pushed (1389) dist:10079 prev:Vertex(1408)
+already checked (1370)
+not here
+popped (7648, Vertex(1183))
+pushed (1181) dist:8730 prev:Vertex(1183)
+pushed (1353) dist:8539 prev:Vertex(1183)
+already checked (1274)
+not here
+popped (7854, Vertex(1406))
+already checked (1403)
+pushed (1417) dist:8721 prev:Vertex(1406)
+already checked (1407)
+not here
+popped (7874, Vertex(1273))
+pushed (1271) dist:10987 prev:Vertex(1273)
+pushed (1277) dist:9052 prev:Vertex(1273)
+already checked (1276)
+not here
+popped (8094, Vertex(1368))
+already checked (1367)
+pushed (1388) dist:9548 prev:Vertex(1368)
+(1389) is occupied dist:9522 prev:Vertex(1408)
+not in deckey
+not here
+popped (8184, Vertex(6427))
+already checked (1407)
+not here
+popped (8269, Vertex(1272))
+(1271) is occupied dist:8939 prev:Vertex(1273)
+not in deckey
+already checked (1275)
+already checked (1276)
+not here
+popped (8276, Vertex(1401))
+pushed (1218) dist:10103 prev:Vertex(1401)
+pushed (1402) dist:9547 prev:Vertex(1401)
+already checked (1403)
+not here
+popped (8539, Vertex(1353))
+already checked (1183)
+not here
+popped (8699, Vertex(1143))
+pushed (1144) dist:10113 prev:Vertex(1143)
+pushed (1264) dist:11716 prev:Vertex(1143)
+already checked (1274)
+not here
+popped (8721, Vertex(1417))
+already checked (1406)
+not here
+popped (8730, Vertex(1181))
+pushed (1182) dist:10698 prev:Vertex(1181)
+already checked (1183)
+pushed (1220) dist:10935 prev:Vertex(1181)
+not here
+popped (8733, Vertex(1373))
+already checked (1371)
+pushed (1374) dist:9178 prev:Vertex(1373)
+not here
+popped (8823, Vertex(1361))
+already checked (1360)
+not here
+popped (8939, Vertex(1271))
+pushed (1270) dist:9950 prev:Vertex(1271)
+already checked (1272)
+already checked (1273)
+not here
+popped (9052, Vertex(1277))
+pushed (1266) dist:9869 prev:Vertex(1277)
+pushed (1269) dist:10032 prev:Vertex(1277)
+(1278) is occupied dist:9834 prev:Vertex(1280)
+not in deckey
+already checked (1273)
+not here
+popped (9074, Vertex(1288))
+already checked (1287)
+pushed (1279) dist:10925 prev:Vertex(1288)
+not here
+popped (9178, Vertex(1374))
+already checked (1373)
+pushed (1375) dist:10249 prev:Vertex(1374)
+pushed (1382) dist:9623 prev:Vertex(1374)
+not here
+popped (9385, Vertex(1372))
+already checked (1371)
+not here
+popped (9522, Vertex(1389))
+already checked (1368)
+already checked (1408)
+pushed (1425) dist:10033 prev:Vertex(1389)
+not here
+popped (9547, Vertex(1402))
+already checked (1401)
+pushed (1223) dist:12043 prev:Vertex(1402)
+pushed (1405) dist:11052 prev:Vertex(1402)
+not here
+popped (9548, Vertex(1388))
+already checked (1368)
+pushed (1391) dist:10000 prev:Vertex(1388)
+pushed (1392) dist:10496 prev:Vertex(1388)
+not here
+popped (9623, Vertex(1382))
+already checked (1374)
+pushed (1383) dist:10623 prev:Vertex(1382)
+pushed (1384) dist:10963 prev:Vertex(1382)
+not here
+popped (9834, Vertex(1278))
+already checked (1277)
+(1279) is occupied dist:10834 prev:Vertex(1288)
+not in deckey
