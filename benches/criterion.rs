@@ -29,7 +29,7 @@ impl Profiler for GProfiler {
             let raw = Command::new("pprof")
                 .args(["--raw", symbols, input.to_str().unwrap()])
                 .output()
-                .expect("failed to cerate raw profile");
+                .expect("failed to create raw profile");
             fs::write(&output, &raw.stdout).unwrap();
         }
     }
