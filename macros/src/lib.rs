@@ -19,7 +19,10 @@ pub fn derive_answer_fn(input: TokenStream) -> TokenStream {
             let name = input.ident;
             let (insert, update, remove) = if let Some(_) = lookup {
                 (
-                    quote!(self.lookup.insert(value,end);),
+                    quote!(
+                        self.lookup.insert(value,end);
+                        #[cfg(debug_assertions)] dbg!(self.lookup.capacity());
+                    ),
                     quote!(
                         let last = self.inner
                             .last()
@@ -28,7 +31,10 @@ pub fn derive_answer_fn(input: TokenStream) -> TokenStream {
                             .value;
                         self.lookup.insert(last, 0);
                     ),
-                    quote!(self.lookup.remove(&min.value);),
+                    quote!(
+                        self.lookup.remove(&min.value);
+                        #[cfg(debug_assertions)] dbg!(self.lookup.capacity());
+                    ),
                 )
             } else {
                 (quote!(), quote!(), quote!())

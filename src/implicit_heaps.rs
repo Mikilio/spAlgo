@@ -5,6 +5,9 @@ use nohash_hasher::NoHashHasher;
 use std::collections::HashMap;
 use std::hash::BuildHasherDefault;
 
+//the hashmap resizes itself but we chose a good default that works for our
+const DEFAULT_SIZE: usize = 8192;
+
 macro_rules! implicit_heap_simple {
     ($k:expr, $T:ident) => {
         #[derive(PriorityQueue)]
@@ -15,7 +18,8 @@ macro_rules! implicit_heap_simple {
         impl From<Vertex> for $T {
             #[inline]
             fn from(value: Vertex) -> Self {
-                let mut inner = Vec::new();
+                //the hashmap resizes itself but we chose a good default that works for our
+                let mut inner = Vec::with_capacity(DEFAULT_SIZE);
                 inner.push(Item { key: 0, value });
                 Self { inner }
             }
@@ -91,8 +95,11 @@ macro_rules! implicit_heap {
         impl From<Vertex> for $T {
             #[inline]
             fn from(value: Vertex) -> Self {
-                let mut inner = Vec::new();
-                let mut lookup = HashMap::with_hasher(BuildHasherDefault::default());
+                //the hashmap resizes itself but we chose a good default that works for our
+                let size = DEFAULT_SIZE;
+                let mut inner = Vec::with_capacity(size);
+                let mut lookup =
+                    HashMap::with_capacity_and_hasher(size, BuildHasherDefault::default());
                 inner.push(Item { key: 0, value });
                 lookup.insert(value, 0);
                 Self { inner, lookup }

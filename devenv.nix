@@ -5,13 +5,18 @@
   env.GREET = "devenv";
 
   # https://devenv.sh/packages/
-  packages = with pkgs; [ gdb git curl gzip gnuplot];
+  packages = with pkgs; [ gdb git curl gzip gnuplot gperftools cargo-flamegraph graphviz gv kcachegrind];
 
   # https://devenv.sh/scripts/
   scripts.prepare-tests = {
     exec = ''
       touch ./test/NY.distances
       RUST_BACKTRACE=1 cargo test -- sssp_test_binary
+    '';
+  };
+  scripts.benchmark-profile = {
+    exec = ''
+      cargo bench --bench criterion -- --profile-time 1000
     '';
   };
   scripts.pull-data = {

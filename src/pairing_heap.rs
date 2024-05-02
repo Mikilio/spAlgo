@@ -1,14 +1,18 @@
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
 
 use crate::{dijkstra::*, dimacs::Vertex};
 
-type Link = Option<Rc<RefCell<Box<Node>>>>;
+type Link = Option<Rc<RefCell<Node>>>;
+type WeakLink = Option<Weak<RefCell<Node>>>;
 
 #[derive(Debug)]
 pub struct Node {
     id: Vertex,
     key: u32,
-    parent: Link,
+    parent: WeakLink,
     child: Link,
     next: Link,
 }
@@ -26,13 +30,13 @@ impl From<Vertex> for Link {
         if value == Vertex(0) {
             None
         } else {
-            Some(Rc::new(RefCell::new(Box::new(Node {
+            Some(Rc::new(RefCell::new(Node {
                 id: value,
                 key: 0,
                 parent: None,
                 child: None,
                 next: None,
-            }))))
+            })))
         }
     }
 }
@@ -104,13 +108,13 @@ impl PriorityQueue for PairingHeap {
 
     #[inline]
     fn push(&mut self, key: Self::Key, value: Self::Value) -> Self::RefType {
-        let new = Some(Rc::new(RefCell::new(Box::new(Node {
+        let new = Some(Rc::new(RefCell::new(Node {
             id: value,
             key,
             parent: None,
             child: None,
             next: self.aux.clone(),
-        }))));
+        })));
         self.aux = new.clone();
         new
     }
@@ -127,6 +131,8 @@ impl DecreaseKey for PairingHeap {
         let parent = target.borrow().parent.clone();
         if target.borrow().id == Vertex(2868) {}
         if let Some(parent) = parent {
+            //SAFETY: all values are usually kept alive by the hashmap
+            let parent = parent.upgrade().unwrap();
             let siblings = target.borrow().next.clone();
             target.borrow_mut().parent = None;
             //we all ready know this parent has children
@@ -182,7 +188,7 @@ fn merge_pair(first: Link) -> (Link, Link) {
     if a.borrow().key < b.borrow().key {
         let child = a.borrow().child.clone();
         b.borrow_mut().next = child;
-        b.borrow_mut().parent = Some(a.clone());
+        b.borrow_mut().parent = Some(Rc::downgrade(&a));
         // assert_eq!(a.borrow().parent, None);
         a.borrow_mut().child = Some(b.clone());
         a.borrow_mut().next = remainder.clone();
@@ -190,7 +196,7 @@ fn merge_pair(first: Link) -> (Link, Link) {
     } else {
         let child = b.borrow().child.clone();
         a.borrow_mut().next = child;
-        a.borrow_mut().parent = Some(b.clone());
+        a.borrow_mut().parent = Some(Rc::downgrade(&b));
         // assert_eq!(b.borrow().parent, None);
         b.borrow_mut().child = Some(a.clone());
         return (Some(b), remainder);

@@ -393,17 +393,35 @@ impl StructuredEdges for NeighborList {
 }
 
 #[inline]
-pub fn sssp<D>(mut data: D, edges: &NeighborList) -> D
+pub fn sssp<D>(mut source: D, edges: &NeighborList) -> D
 where
     D: Dijkstra,
 {
-    while let Some((dist, u)) = data.pop_min() {
+    while let Some((dist, u)) = source.pop_min() {
         // update neighbors of u
         for e in edges.get_neighbors(u.into()) {
-            data.explore(u, dist, e);
+            source.explore(u, dist, e);
         }
     }
-    data
+    source
+}
+
+#[inline]
+pub fn sp_naiv<D>(mut source: D, target: Vertex, edges: &NeighborList) -> Option<(u32, Vec<Vertex>)>
+where
+    D: Dijkstra,
+{
+    while let Some((dist, u)) = source.pop_min() {
+        if u.into() == target {
+            //can safely unwrap because the vertex would have appeared if a path did't exist
+            return Some((dist.into(), source.get_path(target.into()).unwrap()));
+        }
+        // update neighbors of u
+        for e in edges.get_neighbors(u.into()) {
+            source.explore(u, dist, e);
+        }
+    }
+    None
 }
 
 #[cfg(test)]
