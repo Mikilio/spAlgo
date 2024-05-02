@@ -424,6 +424,50 @@ where
     None
 }
 
+#[inline]
+pub fn sp_bi<D>(mut source: D, mut target: D, edges: &NeighborList) -> Option<(u32, Vec<Vertex>)>
+where
+    D: Dijkstra,
+{
+    let mut path_len = u32::MIN;
+    let mut bridge = Vertex(0);
+
+    while let (Some((dist_u, u)), Some((dist_v, v))) = (source.pop_min(), target.pop_min()) {
+        // update neighbors of u
+        for e in edges.get_neighbors(u.into()) {
+            source.explore(u, dist_u, e);
+            //NOTE: check if get_this behaves as expected
+            if let Some(x) = target.get_dist(e.to) {
+                let con = dist_u.into() + e.weight + x;
+                if path_len > con {
+                    path_len = con;
+                    bridge = e.to;
+                }
+            }
+        }
+        // update neighbors of u
+        for e in edges.get_neighbors(v.into()) {
+            source.explore(v, dist_v, e);
+            if let Some(x) = source.get_dist(e.to) {
+                let con = dist_v.into() + e.weight + x;
+                if path_len > con {
+                    path_len = con;
+                    bridge = e.to;
+                }
+            }
+        }
+        if dist_u.into() + dist_v.into() >= path_len {
+            let mut forward = source.get_path(bridge).unwrap();
+            let mut backward = target.get_path(bridge).unwrap();
+            backward.pop();
+            backward.reverse();
+            forward.append(&mut backward);
+            return Some((path_len, forward));
+        }
+    }
+    None
+}
+
 #[cfg(test)]
 mod tests {
 
