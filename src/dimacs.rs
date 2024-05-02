@@ -16,6 +16,16 @@ pub struct Vertex(pub u32);
 #[derive(Debug)]
 pub struct Route(pub Vec<Vertex>);
 
+impl Route {
+    pub fn reverse(&mut self) {
+        self.0.pop();
+        self.0.reverse();
+    }
+    pub fn join(&mut self, other: &mut Route) {
+        self.0.append(&mut other.0);
+    }
+}
+
 pub const UNDEFINED: Vertex = Vertex(0);
 
 impl FromStr for Vertex {

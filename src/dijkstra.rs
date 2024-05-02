@@ -144,7 +144,7 @@ pub trait Dijkstra {
         <Self::Queue as PriorityQueue>::Value,
     )>;
 
-    fn get_path(&self, target: Vertex) -> Option<Vec<Vertex>> {
+    fn get_path(&self, target: Vertex) -> Option<Route> {
         let mut path = Vec::new();
         let mut head = target;
         while let Some((_, prev)) = self.get_meta(head) {
@@ -152,9 +152,10 @@ pub trait Dijkstra {
             if head != prev.into() {
                 head = prev.into();
             } else {
-                return Some(path);
+                return Some(Route(path));
             }
         }
+        dbg!(head);
         None
     }
 
@@ -362,6 +363,32 @@ impl From<Edge> for Neighbor {
 
 pub type NeighborList = Vec<Vec<Neighbor>>;
 
+pub struct DicirectionalList<T: StructuredEdges> {
+    pub forward: T,
+    pub backward: T,
+}
+
+impl<T: StructuredEdges> DicirectionalList<T> {
+    pub fn new(n: usize, edges: impl Iterator<Item = Edge>) -> Self {
+        let (forward, backward): (Vec<_>, Vec<_>) = edges
+            .map(|e| {
+                (
+                    e.clone(),
+                    Edge {
+                        weight: e.weight,
+                        to: e.from,
+                        from: e.to,
+                    },
+                )
+            })
+            .unzip();
+        Self {
+            forward: T::new(n, forward.into_iter()),
+            backward: T::new(n, backward.into_iter()),
+        }
+    }
+}
+
 pub trait StructuredEdges {
     fn new(n: usize, edges: impl Iterator<Item = Edge>) -> Self;
     fn get_neighbors(&self, u: Vertex) -> Iter<Neighbor>;
@@ -398,7 +425,7 @@ where
 }
 
 #[inline]
-pub fn sp_naiv<D>(mut source: D, target: Vertex, edges: &NeighborList) -> Option<(u32, Vec<Vertex>)>
+pub fn sp_naiv<D>(mut source: D, target: Vertex, edges: &NeighborList) -> Option<(u32, Route)>
 where
     D: Dijkstra,
 {
@@ -416,19 +443,27 @@ where
 }
 
 #[inline]
-pub fn sp_bi<D>(mut source: D, mut target: D, edges: &NeighborList) -> Option<(u32, Vec<Vertex>)>
+pub fn sp_bi<D>(
+    mut source: D,
+    mut target: D,
+    edges: &DicirectionalList<NeighborList>,
+) -> Option<(u32, Route)>
 where
     D: Dijkstra,
 {
-    let mut path_len = u32::MIN;
+    let mut path_len = u32::MAX;
     let mut bridge = Vertex(0);
 
     while let (Some((dist_u, u)), Some((dist_v, v))) = (source.pop_min(), target.pop_min()) {
         // update neighbors of u
-        for e in edges.get_neighbors(u.into()) {
+        for e in edges.forward.get_neighbors(u.into()) {
             source.explore(u, dist_u, e);
             if let Some(x) = target.get_dist(e.to) {
                 let con = dist_u.into() + e.weight + x;
+                dbg!(x);
+                dbg!(e.weight);
+                dbg!(con);
+                dbg!(path_len);
                 if path_len > con {
                     path_len = con;
                     bridge = e.to;
@@ -436,10 +471,14 @@ where
             }
         }
         // update neighbors of u
-        for e in edges.get_neighbors(v.into()) {
-            source.explore(v, dist_v, e);
+        for e in edges.backward.get_neighbors(v.into()) {
+            target.explore(v, dist_v, e);
             if let Some(x) = source.get_dist(e.to) {
                 let con = dist_v.into() + e.weight + x;
+                dbg!(x);
+                dbg!(e.weight);
+                dbg!(con);
+                dbg!(path_len);
                 if path_len > con {
                     path_len = con;
                     bridge = e.to;
@@ -449,9 +488,8 @@ where
         if dist_u.into() + dist_v.into() >= path_len {
             let mut forward = source.get_path(bridge).unwrap();
             let mut backward = target.get_path(bridge).unwrap();
-            backward.pop();
             backward.reverse();
-            forward.append(&mut backward);
+            forward.join(&mut backward);
             return Some((path_len, forward));
         }
     }
@@ -538,7 +576,7 @@ mod tests {
                                     i,
                                     result
                                         .get_dist(Vertex(i.try_into().unwrap()))
-                                        .expect(&format!("it had no distance {}", i)),
+                                        .expect(&format!("Vertex {} had no distance", i)),
                                     // Route(result
                                     //     .get_path(Vertex(i.try_into().unwrap()))
                                     //     .expect("there is no path"))
@@ -560,7 +598,7 @@ mod tests {
                                     i,
                                     result
                                         .get_dist(Vertex(i.try_into().unwrap()))
-                                        .expect(&format!("it had no distance {}", i)),
+                                        .expect(&format!("Vertex {} had no distance", i)),
                                     // Route(result
                                     //     .get_path(Vertex(i.try_into().unwrap()))
                                     //     .expect("there is no path"))
@@ -585,4 +623,47 @@ mod tests {
     sssp_test!(sssp_test_pairing, Search, PairingHeap);
     sssp_test!(sssp_test_list, NoLookup, SimpleList);
     sssp_test!(sssp_test_simple, NoLookup, BinaryHeapSimple);
+
+    #[test]
+    fn sp_test() {
+        let n: usize = load_max_vertex(Path::new("./data/NY.co")).into();
+        let size = n + 1;
+        let edges = load_edges(Path::new("./data/NY-d.gr"));
+        let graph: NeighborList = StructuredEdges::new(size, edges);
+        let edges = load_edges(Path::new("./data/NY-d.gr"));
+        let bigraph: DicirectionalList<NeighborList> = DicirectionalList::new(size, edges);
+        let source: OwnedLookup<BinaryHeap> = OwnedLookup::from((Vertex(1), size));
+        let naiv = sp_naiv(source, Vertex(25), &graph);
+        let source: OwnedLookup<BinaryHeap> = OwnedLookup::from((Vertex(1), size));
+        let target: OwnedLookup<BinaryHeap> = OwnedLookup::from((Vertex(25), size));
+        let bi = sp_bi(source, target, &bigraph);
+        let path = Path::new("./test/NY.distances");
+        match File::open(path) {
+            Ok(mut file) => {
+                // Check if the file is empty
+                let mut buffer = [0u8];
+                let c = file.read(&mut buffer).unwrap();
+                if c < 1 {
+                    // If the file is empty, wait for other tests to write
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                } else {
+                    // If the file is not empty, reopen it for reading
+                    let reader = BufReader::new(file);
+                    let target_line = reader.lines().skip(24).next().unwrap().unwrap();
+                    let (dist, _path) = naiv.unwrap();
+                    assert_eq!(format!("25: {}", dist), target_line);
+                    let (dist, _path) = bi.unwrap();
+                    assert_eq!(format!("25: {}", dist), target_line);
+                }
+            }
+            Err(_) => {
+                panic!(
+                    "⚠️ {}",
+                    "Please prepare the tests with `prepare-tests`"
+                        .bold()
+                        .yellow()
+                );
+            }
+        };
+    }
 }
