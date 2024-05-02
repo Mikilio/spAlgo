@@ -185,10 +185,6 @@ impl<T: DecreaseKey> Dijkstra for Search<T> {
         match explored {
             Occupied(mut entry) => {
                 let (link, dist, prev) = entry.get_mut();
-                let none: T::RefType = Vertex(0).into();
-                if none == *link {
-                    return;
-                }
                 if alt < (*dist).into() {
                     self.queue.decrease_key(link.clone(), alt.into());
                     *dist = alt.into();
@@ -204,12 +200,7 @@ impl<T: DecreaseKey> Dijkstra for Search<T> {
 
     #[inline]
     fn pop_min(&mut self) -> Option<(T::Key, T::Value)> {
-        if let Some((key, value)) = self.queue.pop() {
-            let (link, _k, _) = self.meta.get_mut(&value.into()).unwrap();
-            *link = Vertex(0).into();
-            return Some((key, value));
-        }
-        None
+        self.queue.pop()
     }
 
     #[inline]
@@ -436,7 +427,6 @@ where
         // update neighbors of u
         for e in edges.get_neighbors(u.into()) {
             source.explore(u, dist_u, e);
-            //NOTE: check if get_this behaves as expected
             if let Some(x) = target.get_dist(e.to) {
                 let con = dist_u.into() + e.weight + x;
                 if path_len > con {
