@@ -65,6 +65,60 @@ impl_has_type_name!(
     PairingHeap,
 );
 
+pub fn cmp_sp_queries(c: &mut Criterion) {
+    let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
+    let smaller_regions = [
+        "USA", "CTR", "W", "E", "LKS", "CAL", "NE", "NW", "FLA", "COL", "BAY", "NY",
+    ];
+    let rng = &mut thread_rng();
+    let mut group = c.benchmark_group("SP_Queries");
+    group
+        .measurement_time(Duration::from_secs(1000))
+        .sample_size(100)
+        .sampling_mode(SamplingMode::Flat)
+        .plot_config(plot_config);
+    for region in smaller_regions {
+        let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
+        let size = n + 1;
+        let graph = preprocess_graph(region, size);
+        let bigraph = preprocess_bigraph(region, size);
+        group.bench_with_input(BenchmarkId::new("Naiv", &size), &size, |b, &size| {
+            b.iter_batched(
+                || {
+                    (
+                        PentaryHeap::init_dijkstra(
+                            rng.gen_range(0..size).try_into().unwrap(),
+                            size,
+                        ),
+                        rng.gen_range(0..size).try_into().unwrap(),
+                    )
+                },
+                |(source, target)| sp_naiv(source, target, &graph),
+                criterion::BatchSize::LargeInput,
+            );
+        });
+        group.bench_with_input(BenchmarkId::new("Bi", &size), &size, |b, &size| {
+            b.iter_batched(
+                || {
+                    (
+                        PentaryHeap::init_dijkstra(
+                            rng.gen_range(0..size).try_into().unwrap(),
+                            size,
+                        ),
+                        PentaryHeap::init_dijkstra(
+                            rng.gen_range(0..size).try_into().unwrap(),
+                            size,
+                        ),
+                    )
+                },
+                |(source, target)| sp_bi(source, target, &bigraph),
+                criterion::BatchSize::LargeInput,
+            );
+        });
+    }
+    group.finish();
+}
+
 pub fn cmp_sssp(c: &mut Criterion) {
     let plot_config = PlotConfiguration::default().summary_scale(AxisScale::Logarithmic);
     let smaller_regions = [
@@ -98,7 +152,7 @@ pub fn cmp_sssp(c: &mut Criterion) {
 criterion_group! {
     name = benches;
     config = Criterion::default().with_profiler(GProfiler);
-    targets = cmp_sssp,
+    targets = /* cmp_sssp,*/cmp_sp_queries
 }
 criterion_main!(benches);
 
@@ -106,6 +160,12 @@ criterion_main!(benches);
 fn preprocess_graph(region: &str, n: usize) -> NeighborList {
     let edges = load_edges(Path::new(&format!("./data/{}-d.gr", region)));
     StructuredEdges::new(n, edges)
+}
+
+#[inline]
+fn preprocess_bigraph(region: &str, n: usize) -> DicirectionalList<NeighborList> {
+    let edges = load_edges(Path::new(&format!("./data/{}-d.gr", region)));
+    DicirectionalList::new(n, edges)
 }
 
 #[inline]

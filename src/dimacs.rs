@@ -1,4 +1,5 @@
 use std::fmt::Display;
+use std::io;
 use std::num::TryFromIntError;
 use std::{
     fs::File,
@@ -23,6 +24,26 @@ impl Route {
     }
     pub fn join(&mut self, other: &mut Route) {
         self.0.append(&mut other.0);
+    }
+}
+
+pub struct CostMatrix {
+    inner: File,
+    size: usize,
+}
+
+impl CostMatrix {
+    pub fn new(path: &Path, size: usize) -> Result<Self, io::Error> {
+        Ok(Self {
+            inner: File::open(path)?,
+            size,
+        })
+    }
+    pub fn get(&self, source: Vertex, target: Vertex) -> Result<u32, io::Error> {
+        let ref mut bytes = [0u8; 4];
+        let offset = usize::from(source) * 4 + usize::from(target) * self.size * 4;
+        self.inner.read_exact_at(bytes, offset as u64)?;
+        Ok(u32::from_le_bytes(*bytes))
     }
 }
 
@@ -258,5 +279,35 @@ pub fn load_max_vertex(path: &Path) -> Vertex {
             "couldn't parse line:\n{}\nbecause of: {:#?}",
             err.line, err.kind
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{fs::File, os::unix::fs::FileExt, path::Path};
+
+    use crate::dimacs::Vertex;
+
+    use super::CostMatrix;
+
+    #[test]
+    fn cost_matrix_test() {
+        let path = Path::new(&"./test/costmatrix_test.cost");
+        {
+            let matrix: Vec<u32> = vec![1, 2, 3, 4, 5, 6, 7, 8, 9];
+            let file = File::create(path).unwrap();
+            let ptr: *const [u8; 9 * 4] = matrix.as_ptr().cast();
+            let bytes = unsafe { *ptr };
+            let rows = bytes.splitn(3, |_| false);
+            for (i, row) in rows.enumerate() {
+                file.write_all_at(row, i as u64 * (4u64 * 9u64)).unwrap();
+            }
+        }
+        let cost = CostMatrix::new(path, 3).unwrap();
+        for x in 1..4 {
+            for y in 1..4 {
+                assert_eq!(cost.get(Vertex(x), Vertex(y)).unwrap(), x + 3 * (y - 1));
+            }
+        }
     }
 }

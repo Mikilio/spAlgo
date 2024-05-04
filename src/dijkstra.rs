@@ -155,7 +155,6 @@ pub trait Dijkstra {
                 return Some(Route(path));
             }
         }
-        dbg!(head);
         None
     }
 
@@ -460,10 +459,6 @@ where
             source.explore(u, dist_u, e);
             if let Some(x) = target.get_dist(e.to) {
                 let con = dist_u.into() + e.weight + x;
-                dbg!(x);
-                dbg!(e.weight);
-                dbg!(con);
-                dbg!(path_len);
                 if path_len > con {
                     path_len = con;
                     bridge = e.to;
@@ -475,10 +470,6 @@ where
             target.explore(v, dist_v, e);
             if let Some(x) = source.get_dist(e.to) {
                 let con = dist_v.into() + e.weight + x;
-                dbg!(x);
-                dbg!(e.weight);
-                dbg!(con);
-                dbg!(path_len);
                 if path_len > con {
                     path_len = con;
                     bridge = e.to;
