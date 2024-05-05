@@ -40,8 +40,9 @@ impl CostMatrix {
         })
     }
     pub fn get(&self, source: Vertex, target: Vertex) -> Result<u32, io::Error> {
-        let ref mut bytes = [0u8; 4];
-        let offset = usize::from(source) * 4 + usize::from(target) * self.size * 4;
+        let ref mut bytes = [0u8; std::mem::size_of::<u32>()];
+        let offset = usize::from(target) * std::mem::size_of::<u32>()
+            + usize::from(source) * self.size * std::mem::size_of::<u32>();
         self.inner.read_exact_at(bytes, offset as u64)?;
         Ok(u32::from_le_bytes(*bytes))
     }
@@ -306,7 +307,7 @@ mod tests {
         let cost = CostMatrix::new(path, 3).unwrap();
         for x in 1..4 {
             for y in 1..4 {
-                assert_eq!(cost.get(Vertex(x), Vertex(y)).unwrap(), x + 3 * (y - 1));
+                assert_eq!(cost.get(Vertex(x), Vertex(y)).unwrap(), y + 3 * (x - 1));
             }
         }
     }

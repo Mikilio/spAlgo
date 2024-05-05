@@ -9,21 +9,22 @@ edition = "2021"
 [dependencies]
 macros = { path = "macros" }
 nohash-hasher = "0.2.0"
-csv = "1.3.0"
+chrono = "0.4.38"
 rayon = "1.10.0"
+tempfile = "3.10.1"
+transpose = "0.2.3"
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
 cpuprofiler = "0.0.4"
 rand = "0.8.4"
 colored = "2.1.0"
-chrono = "0.4.38"
 
 
 [[bench]]
 name = "criterion"
 harness = false
 
-[profile.bench]
+[profile.test]
 debug = true
 
