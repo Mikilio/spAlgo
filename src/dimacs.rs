@@ -11,34 +11,47 @@ use std::{
     vec::Vec,
 };
 
+/// Represents a vertex in the graph.
 #[derive(Hash, Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Vertex(pub u32);
 
+/// Represents a route in the graph.
 #[derive(Debug)]
 pub struct Route(pub Vec<Vertex>);
 
 impl Route {
+    /// Reverses the route.
     pub fn reverse(&mut self) {
         self.0.pop();
         self.0.reverse();
     }
+    /// Joins another route to this one.
     pub fn join(&mut self, other: &mut Route) {
         self.0.append(&mut other.0);
     }
 }
 
+/// Represents a cost matrix.
 pub struct CostMatrix {
     inner: File,
     size: usize,
 }
 
 impl CostMatrix {
+    /// Constructs a new `CostMatrix`.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - A `Path` to the file containing the cost matrix.
+    /// * `size` - The size N of the matrix NxN.
     pub fn new(path: &Path, size: usize) -> Result<Self, io::Error> {
         Ok(Self {
             inner: File::open(path)?,
             size,
         })
     }
+
+    /// Gets the cost between two vertices.
     pub fn get(&self, source: Vertex, target: Vertex) -> Result<u32, io::Error> {
         let ref mut bytes = [0u8; std::mem::size_of::<u32>()];
         let offset = usize::from(target) * std::mem::size_of::<u32>()
@@ -48,6 +61,7 @@ impl CostMatrix {
     }
 }
 
+/// Represents an undefined vertex.
 pub const UNDEFINED: Vertex = Vertex(0);
 
 impl FromStr for Vertex {
@@ -100,6 +114,7 @@ impl Display for Route {
     }
 }
 
+/// Represents an edge in the graph.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Edge {
     pub from: Vertex,
@@ -107,6 +122,7 @@ pub struct Edge {
     pub weight: u32,
 }
 
+/// Enumerates different kinds of graph errors.
 #[non_exhaustive]
 #[derive(Debug, PartialEq, Eq)]
 pub enum GraphErrorKind {
@@ -115,6 +131,7 @@ pub enum GraphErrorKind {
     InvalidValue,
 }
 
+/// Represents an error when parsing edges.
 #[derive(Debug, PartialEq, Eq)]
 pub struct ParseEdgeError {
     kind: GraphErrorKind,
@@ -154,6 +171,7 @@ impl FromStr for Edge {
     }
 }
 
+/// Represents an error when parsing vertices.
 pub type ParseVertexError = ParseEdgeError;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -162,6 +180,7 @@ pub struct Coordinates {
     y: i64,
 }
 
+/// Represents coordinates.
 pub struct VertexCoord {
     vertex: Vertex,
     coordinates: Coordinates,
@@ -203,6 +222,7 @@ impl FromStr for VertexCoord {
     }
 }
 
+/// Loads edges from a file downloaded from https://www.diag.uniroma1.it/challenge9/download.shtml.
 #[inline]
 pub fn load_edges(path: &Path) -> impl Iterator<Item = Edge> {
     let display = path.display();
@@ -229,6 +249,7 @@ pub fn load_edges(path: &Path) -> impl Iterator<Item = Edge> {
         })
 }
 
+/// Loads coordinates from a file downloaded from https://www.diag.uniroma1.it/challenge9/download.shtml.
 #[inline]
 pub fn load_coordinates(path: &Path) -> impl Iterator<Item = Coordinates> {
     let display = path.display();
@@ -255,6 +276,7 @@ pub fn load_coordinates(path: &Path) -> impl Iterator<Item = Coordinates> {
         })
 }
 
+/// Loads the maximum vertex from a file downloaded from https://www.diag.uniroma1.it/challenge9/download.shtml.
 #[inline]
 pub fn load_max_vertex(path: &Path) -> Vertex {
     let display = path.display();

@@ -53,7 +53,7 @@ macro_rules! impl_has_type_name {
 }
 
 impl_has_type_name!(
-    SimpleList,
+    SortetList,
     BinaryHeap,
     PentaryHeap,
     OctaryHeap,
@@ -144,7 +144,7 @@ pub fn cmp_sssp(c: &mut Criterion) {
         benchmark::<OctaryHeapSimple>(rng, size, &graph, &mut group);
         benchmark::<HexadecimaryHeapSimple>(rng, size, &graph, &mut group);
         benchmark::<PairingHeap>(rng, size, &graph, &mut group);
-        benchmark::<SimpleList>(rng, size, &graph, &mut group);
+        benchmark::<SortetList>(rng, size, &graph, &mut group);
     }
     group.finish();
 }

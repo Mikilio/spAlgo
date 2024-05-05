@@ -11,17 +11,19 @@ use nohash_hasher::{IsEnabled, NoHashHasher};
 
 use crate::dimacs::*;
 
+/// Represents an item of a priority queue with a key and a value.
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct Item {
     pub key: u32,
     pub value: Vertex,
 }
 
-pub struct SimpleList {
+/// Represents a sortet list.
+pub struct SortetList {
     inner: Vec<Item>,
 }
 
-impl From<Vertex> for SimpleList {
+impl From<Vertex> for SortetList {
     #[inline]
     fn from(value: Vertex) -> Self {
         let mut inner = Vec::new();
@@ -44,8 +46,11 @@ impl Ord for Item {
     }
 }
 
+/// Represents a search structure.
 pub struct Search<T: DecreaseKey> {
+    /// The priority queue used for searching.
     pub queue: T,
+    /// Meta-information about vertices with entries like (reference to the heap item, distance, previous node).
     pub meta:
         HashMap<Vertex, (T::RefType, T::Key, T::Value), BuildHasherDefault<NoHashHasher<T::Key>>>,
 }
@@ -68,8 +73,11 @@ impl<T: DecreaseKey> From<(Vertex, usize)> for Search<T> {
     }
 }
 
+// Represent a search structure with its own lookup implementation
 pub struct OwnedLookup<T: DecreaseKey> {
+    /// The priority queue used for searching.
     pub queue: T,
+    /// Meta-information about vertices with entries like (distance, previous node).
     pub meta: HashMap<Vertex, (T::Key, T::Value), BuildHasherDefault<NoHashHasher<T::Key>>>,
 }
 
@@ -87,8 +95,12 @@ impl<T: DecreaseKey> From<(Vertex, usize)> for OwnedLookup<T> {
     }
 }
 
+// Represent a search structure without lookup implementation
 pub struct NoLookup<T: PriorityQueue> {
+    /// The priority queue used for searching.
     pub queue: T,
+    /// Meta-information about vertices with entries like (distance, previous node).
+    /// a distance is only set when it is final.
     pub meta: HashMap<Vertex, (Option<T::Key>, T::Value), BuildHasherDefault<NoHashHasher<T::Key>>>,
 }
 
@@ -106,6 +118,7 @@ impl<T: PriorityQueue> From<(Vertex, usize)> for NoLookup<T> {
     }
 }
 
+/// A trait representing a priority queue.
 pub trait PriorityQueue: From<Vertex> {
     type RefType: From<Vertex> + PartialEq + Debug + Clone;
     type Key: From<u32> + Into<u32> + IsEnabled + Eq + Debug + Copy;
@@ -116,19 +129,24 @@ pub trait PriorityQueue: From<Vertex> {
     fn push(&mut self, key: Self::Key, value: Self::Value) -> Self::RefType;
 }
 
+/// A trait representing a priority queue with support for key decrease operation.
 pub trait DecreaseKey: PriorityQueue {
     fn decrease_key(&mut self, of: Self::RefType, key: Self::Key);
 }
 
+/// A trait representing the ability to do BFS seasch for the Dijkstra algorithm.
 pub trait Dijkstra {
     type Queue: PriorityQueue;
 
+    /// explore new node
     fn explore(
         &mut self,
         from: <Self::Queue as PriorityQueue>::Value,
         key: <Self::Queue as PriorityQueue>::Key,
         e: &Neighbor,
     );
+
+    ///get next node
     fn pop_min(
         &mut self,
     ) -> Option<(
@@ -306,7 +324,7 @@ impl<T: PriorityQueue> Dijkstra for NoLookup<T> {
     }
 }
 
-impl PriorityQueue for SimpleList {
+impl PriorityQueue for SortetList {
     type RefType = usize;
     type Key = u32;
     type Value = Vertex;
@@ -340,10 +358,11 @@ impl PriorityQueue for SimpleList {
     }
 }
 
-impl InitDijkstra for SimpleList {
+impl InitDijkstra for SortetList {
     type Data = NoLookup<Self>;
 }
 
+/// Represents a neighboring vertex with its weight.
 #[derive(Clone, Copy, Debug)]
 pub struct Neighbor {
     pub to: Vertex,
@@ -360,8 +379,10 @@ impl From<Edge> for Neighbor {
     }
 }
 
+/// A list of neighbors for each vertex.
 pub type NeighborList = Vec<Vec<Neighbor>>;
 
+/// Represents a bidirectional list of edges.
 pub struct DicirectionalList<T: StructuredEdges> {
     pub forward: T,
     pub backward: T,
@@ -388,6 +409,7 @@ impl<T: StructuredEdges> DicirectionalList<T> {
     }
 }
 
+/// A trait for structures containing structured edges.
 pub trait StructuredEdges {
     fn new(n: usize, edges: impl Iterator<Item = Edge>) -> Self;
     fn get_neighbors(&self, u: Vertex) -> Iter<Neighbor>;
@@ -410,6 +432,7 @@ impl StructuredEdges for NeighborList {
 }
 
 #[inline]
+/// Performs single-source shortest path computation.
 pub fn sssp<D>(mut source: D, edges: &NeighborList) -> D
 where
     D: Dijkstra,
@@ -423,6 +446,7 @@ where
     source
 }
 
+/// Performs shortest path computation to a specific target.
 #[inline]
 pub fn sp_naiv<D>(mut source: D, target: Vertex, edges: &NeighborList) -> Option<(u32, Route)>
 where
@@ -441,6 +465,7 @@ where
     None
 }
 
+/// Performs bidirectional shortest path computation.
 #[inline]
 pub fn sp_bi<D>(
     mut source: D,
@@ -508,7 +533,7 @@ mod tests {
     fn push_pop_simple_list() {
         let n = 10000;
         let mut highest_min = 0;
-        let mut dijkstra: NoLookup<SimpleList> = NoLookup::from((Vertex(1), n));
+        let mut dijkstra: NoLookup<SortetList> = NoLookup::from((Vertex(1), n));
         let mut rng = thread_rng();
         //push
         for i in 1..n {
@@ -612,7 +637,7 @@ mod tests {
     }
     sssp_test!(sssp_test_binary, OwnedLookup, BinaryHeap);
     sssp_test!(sssp_test_pairing, Search, PairingHeap);
-    sssp_test!(sssp_test_list, NoLookup, SimpleList);
+    sssp_test!(sssp_test_list, NoLookup, SortetList);
     sssp_test!(sssp_test_simple, NoLookup, BinaryHeapSimple);
 
     #[test]

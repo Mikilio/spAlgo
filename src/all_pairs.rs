@@ -19,12 +19,17 @@ use crate::{
     implicit_heaps::PentaryHeap,
 };
 
+/// Size of each block for block-wise operations.
 const BLOCK_SIZE: usize = 4096 * 3;
+/// Nerf factor used to run test in fasible time. Set to 1 to run fill algorithm.
 const NERF_FACTOR: usize = 200;
 
+/// Wrapper struct for transposed matrix.
 struct Transpose(Vec<u32>);
+/// Wrapper struct for matrix.
 struct Matrix(Vec<u32>);
 
+/// Convert a slice of u32 to a slice of u8.
 fn as_u8_slice(v: &[u32]) -> &[u8] {
     unsafe {
         std::slice::from_raw_parts(
@@ -34,12 +39,14 @@ fn as_u8_slice(v: &[u32]) -> &[u8] {
     }
 }
 
+/// Convert a mutable slice of u32 to a mutable slice of u8.
 fn as_u8_slice_mut(v: &mut [u32]) -> &mut [u8] {
     unsafe {
         std::slice::from_raw_parts_mut(v.as_ptr() as *mut u8, v.len() * std::mem::size_of::<u32>())
     }
 }
 
+/// Convert graph to matrix.
 fn graph2matrix(graph: &NeighborList, row: usize, col: usize) -> Vec<u32> {
     let mut matrix = vec![0u32; BLOCK_SIZE * BLOCK_SIZE];
     let row_start = row * BLOCK_SIZE;
@@ -56,6 +63,7 @@ fn graph2matrix(graph: &NeighborList, row: usize, col: usize) -> Vec<u32> {
     matrix
 }
 
+/// Transpose a matrix.
 fn transpose(a: &Matrix) -> Transpose {
     let mut b = Vec::with_capacity(BLOCK_SIZE * BLOCK_SIZE);
     unsafe { b.set_len(BLOCK_SIZE * BLOCK_SIZE) }
@@ -63,6 +71,13 @@ fn transpose(a: &Matrix) -> Transpose {
     Transpose(b)
 }
 
+/// Cross two blocks for block-wise Warshall-Floyd algorithm.
+///NOTE:this function can further be optimized by tiling
+///
+/// # Arguments
+///
+/// * `a` - Matrix for the first block.
+/// * `b` - Transposed matrix of second block.
 fn wf_block(a: Matrix, b: &Transpose) -> Matrix {
     let mut a = a;
     for k in 0..BLOCK_SIZE {
@@ -78,6 +93,13 @@ fn wf_block(a: Matrix, b: &Transpose) -> Matrix {
     a
 }
 
+/// Calculate all-pairs shortest paths using Warshall-Floyd algorithm.
+///
+/// # Arguments
+///
+/// * `size` - Number of Vertices.
+/// * `graph` - Graph represented as a directional list of neighbor lists.
+/// * `dir` - Path to the directory for storing the result file.
 pub fn warshall_floyd(
     size: usize,
     graph: &DicirectionalList<NeighborList>,
@@ -296,6 +318,13 @@ pub fn warshall_floyd(
     CostMatrix::new(file_name, size)
 }
 
+/// Calculate all-pairs shortest paths using Dijkstra's algorithm.
+///
+/// # Arguments
+///
+/// * `size` - Number of vertices.
+/// * `graph` - Graph represented as a neighbor list.
+/// * `dir` - Path to the directory for storing the result file.
 pub fn apsp(size: usize, graph: &NeighborList, dir: &Path) -> Result<CostMatrix, io::Error> {
     if !dir.is_dir() {
         return Err(Error::new(

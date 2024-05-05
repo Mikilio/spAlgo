@@ -8,12 +8,18 @@ use crate::{dijkstra::*, dimacs::Vertex};
 type Link = Option<Rc<RefCell<Node>>>;
 type WeakLink = Option<Weak<RefCell<Node>>>;
 
+/// Represents a node in the pairing heap.
 #[derive(Debug)]
 pub struct Node {
+    /// The identifier of the node.
     id: Vertex,
+    /// The key value of the node (current distance).
     key: u32,
+    /// A weak reference to the parent node.
     parent: WeakLink,
+    /// A strong reference to the first child node.
     child: Link,
+    /// A strong reference to the next sibling node.
     next: Link,
 }
 
@@ -41,6 +47,7 @@ impl From<Vertex> for Link {
     }
 }
 
+/// Represents a pairing heap.
 #[derive(Debug)]
 pub struct PairingHeap {
     main: Link,
@@ -157,6 +164,7 @@ impl DecreaseKey for PairingHeap {
     }
 }
 
+/// Utility function to find a node in a linked structure.
 #[allow(dead_code)]
 fn find_in_link(link: Link, id: Vertex) -> bool {
     match link {
@@ -172,6 +180,7 @@ fn find_in_link(link: Link, id: Vertex) -> bool {
     }
 }
 
+/// Utility function to merge a pair of nodes.
 #[inline]
 fn merge_pair(first: Link) -> (Link, Link) {
     let (a, b) = if let Some(a) = first {
@@ -203,6 +212,7 @@ fn merge_pair(first: Link) -> (Link, Link) {
     }
 }
 
+/// Utility function to merge nodes from front to back.
 #[inline]
 fn merge_front_to_back(start: Link) -> Link {
     let mut current = start.clone();
@@ -216,6 +226,7 @@ fn merge_front_to_back(start: Link) -> Link {
     }
 }
 
+/// Utility function to merge nodes from back to front.
 fn merge_back_to_front(current: Link) -> Link {
     match current {
         Some(node) => {
@@ -227,6 +238,7 @@ fn merge_back_to_front(current: Link) -> Link {
     }
 }
 
+/// Utility function for multipass merging of nodes.
 fn multipass(start: Link) -> Link {
     let mut current = start;
     let mut next_round: Link = None;
@@ -252,6 +264,7 @@ fn multipass(start: Link) -> Link {
     }
 }
 
+/// Utility function for two-pass merging of nodes in reverse.
 #[allow(dead_code)]
 #[inline]
 fn two_pass(start: Link) -> Link {
@@ -279,6 +292,7 @@ fn two_pass(start: Link) -> Link {
     }
 }
 
+/// Utility function for two-pass merging of nodes in reverse.
 #[allow(dead_code)]
 #[inline]
 fn two_pass_reverse(start: Link) -> Link {

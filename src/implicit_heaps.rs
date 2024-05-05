@@ -5,11 +5,13 @@ use nohash_hasher::NoHashHasher;
 use std::collections::HashMap;
 use std::hash::BuildHasherDefault;
 
-//the hashmap resizes itself but we chose a good default that works for our
+// The hashmap resizes itself but we chose a good default that works for our use case.
 const DEFAULT_SIZE: usize = 8192;
 
 macro_rules! implicit_heap_simple {
     ($k:expr, $T:ident) => {
+        // Define a priority queue struct using the given identifier ($T).
+        // This queue uses a simple d_ary heap implementation.
         #[derive(PriorityQueue)]
         pub struct $T {
             inner: Vec<Item>,
@@ -18,7 +20,7 @@ macro_rules! implicit_heap_simple {
         impl From<Vertex> for $T {
             #[inline]
             fn from(value: Vertex) -> Self {
-                //the hashmap resizes itself but we chose a good default that works for our
+                // The hashmap resizes itself but we chose a good default that works for our use case.
                 let mut inner = Vec::with_capacity(DEFAULT_SIZE);
                 inner.push(Item { key: 0, value });
                 Self { inner }
@@ -30,6 +32,7 @@ macro_rules! implicit_heap_simple {
         }
 
         impl $T {
+            // Move the item at the specified index up in the heap
             #[inline]
             fn bubble_up(&mut self, dirt: usize) {
                 let mut child = dirt;
@@ -48,6 +51,7 @@ macro_rules! implicit_heap_simple {
                 }
             }
 
+            // Move the root item down in the heap
             #[inline]
             fn bubble_down(&mut self) {
                 let mut parent = 0;
@@ -86,6 +90,8 @@ macro_rules! implicit_heap_simple {
 
 macro_rules! implicit_heap {
     ($k:expr, $T:ident) => {
+        // Define a priority queue struct using the given identifier ($T).
+        // This queue uses a d_ary heap implementation with lookup.
         #[derive(PriorityQueue)]
         pub struct $T {
             inner: Vec<Item>,
@@ -121,6 +127,7 @@ macro_rules! implicit_heap {
         }
 
         impl $T {
+            // Move the item at the specified index up in the heap
             #[inline]
             fn bubble_up(&mut self, dirt: usize) {
                 let mut child = dirt;
@@ -141,6 +148,7 @@ macro_rules! implicit_heap {
                 }
             }
 
+            // Move the root item down in the heap
             #[inline]
             fn bubble_down(&mut self) {
                 let mut parent = 0;
@@ -206,7 +214,7 @@ mod tests {
                 let mut highest_min = 0;
                 let mut dijkstra: OwnedLookup<$T> = OwnedLookup::from((Vertex(1), n));
                 let mut rng = thread_rng();
-                //push
+                //Push
                 for i in 1..n {
                     let to = Vertex::try_from(i).unwrap();
                     dijkstra.explore(
@@ -218,14 +226,14 @@ mod tests {
                         },
                     );
                 }
-                //decrease_key
+                //Decrease_key
                 for _ in 0..n {
                     let to: Vertex = rng.gen_range(1..n).try_into().unwrap();
                     let (key, _) = dijkstra.meta.get(&to).unwrap();
                     let key = key / 2;
                     dijkstra.explore(Vertex(1), 0, &Neighbor { weight: key, to });
                 }
-                //pop
+                //Pop
                 for _ in 0..n {
                     let (key, popped) = dijkstra.pop_min().unwrap();
                     let (stored_key, _) = dijkstra.meta.get(&popped).unwrap();
@@ -249,9 +257,9 @@ mod tests {
             fn $name() {
                 let n = 10000;
                 let mut highest_min = 0;
-                let mut dijkstra: NoLookup<SimpleList> = NoLookup::from((Vertex(1), n));
+                let mut dijkstra: NoLookup<SortetList> = NoLookup::from((Vertex(1), n));
                 let mut rng = thread_rng();
-                //push
+                //Push
                 for i in 1..n {
                     let to = Vertex::try_from(i).unwrap();
                     dijkstra.explore(
@@ -263,13 +271,13 @@ mod tests {
                         },
                     );
                 }
-                //some more pushes
+                //Some more pushes
                 for _ in 0..n {
                     let to: Vertex = rng.gen_range(1..n).try_into().unwrap();
                     let key = rng.gen_range(1..1000000);
                     dijkstra.explore(Vertex(1), 0, &Neighbor { weight: key, to });
                 }
-                //pop
+                //Pop
                 for _ in 0..n {
                     let (key, popped) = dijkstra.pop_min().unwrap();
                     let (stored_key, _) = dijkstra.meta.get(&popped).unwrap();
