@@ -127,8 +127,8 @@ pub fn cmp_sssp(c: &mut Criterion) {
     let rng = &mut thread_rng();
     let mut group = c.benchmark_group("SSSP");
     group
-        .measurement_time(Duration::from_secs(100))
-        .sample_size(10)
+        .measurement_time(Duration::from_secs(600))
+        .sample_size(50)
         .sampling_mode(SamplingMode::Flat)
         .plot_config(plot_config);
     for region in smaller_regions {
@@ -152,7 +152,7 @@ pub fn cmp_sssp(c: &mut Criterion) {
 criterion_group! {
     name = benches;
     config = Criterion::default().with_profiler(GProfiler);
-    targets = /* cmp_sssp,*/cmp_sp_queries
+    targets =  cmp_sssp,cmp_sp_queries
 }
 criterion_main!(benches);
 
