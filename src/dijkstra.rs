@@ -120,7 +120,7 @@ impl<T: PriorityQueue> From<(Vertex, usize)> for NoLookup<T> {
 
 /// A trait representing a priority queue.
 pub trait PriorityQueue: From<Vertex> {
-    type RefType: From<Vertex> + PartialEq + Debug + Clone;
+    type RefType: From<Vertex> + Debug + Clone;
     type Key: From<u32> + Into<u32> + IsEnabled + Eq + Debug + Copy;
     type Value: From<Vertex> + Into<Vertex> + Eq + Debug + Copy;
 

@@ -5,7 +5,8 @@
   env.GREET = "devenv";
 
   # https://devenv.sh/packages/
-  packages = with pkgs; [ gdb git curl gzip gnuplot gperftools cargo-flamegraph graphviz gv kcachegrind];
+  packages = with pkgs; [ gdb git curl gzip gnuplot gperftools cargo-flamegraph
+  graphviz gv kcachegrind valgrind];
 
   # https://devenv.sh/scripts/
   scripts.prepare-tests = {
@@ -16,7 +17,7 @@
   };
   scripts.benchmark-profile = {
     exec = ''
-      cargo bench --bench criterion -- --profile-time 1000
+      cargo bench --bench criterion -- --profile-time 120
     '';
   };
   scripts.pull-data = {

@@ -16,13 +16,19 @@ transpose = "0.2.3"
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
-cpuprofiler = "0.0.4"
+iai = "0.1"
+gperftools = { version = "0.2.0", features = ["heap"] } 
+paste = "1.0.15"
 rand = "0.8.4"
 colored = "2.1.0"
 
 
 [[bench]]
 name = "criterion"
+harness = false
+
+[[bench]]
+name = "iai"
 harness = false
 
 [profile.test]

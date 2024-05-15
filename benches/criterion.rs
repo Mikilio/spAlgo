@@ -2,6 +2,8 @@ use criterion::{
     criterion_group, criterion_main, measurement::WallTime, profiler::Profiler, AxisScale,
     BenchmarkGroup, BenchmarkId, Criterion, PlotConfiguration, SamplingMode,
 };
+use gperftools::profiler::PROFILER;
+use gperftools::HEAP_PROFILER;
 use rand::{rngs::ThreadRng, thread_rng, Rng};
 use sp_algo::{dijkstra::*, dimacs::*, implicit_heaps::*, pairing_heap::*};
 use std::{fs, path::Path, process::Command, time::Duration};
@@ -10,10 +12,16 @@ struct GProfiler;
 
 impl Profiler for GProfiler {
     fn start_profiling(&mut self, _benchmark_id: &str, benchmark_dir: &Path) {
+        let hpath = benchmark_dir.join("main.hprofile");
         let path = benchmark_dir.join("main.profile");
         let prefix = path.parent().unwrap();
         std::fs::create_dir_all(prefix).unwrap();
-        cpuprofiler::PROFILER
+        HEAP_PROFILER
+            .lock()
+            .unwrap()
+            .start(hpath.to_str().unwrap())
+            .unwrap();
+        PROFILER
             .lock()
             .unwrap()
             .start(path.to_str().unwrap())
@@ -21,7 +29,8 @@ impl Profiler for GProfiler {
     }
 
     fn stop_profiling(&mut self, _benchmark_id: &str, benchmark_dir: &Path) {
-        cpuprofiler::PROFILER.lock().unwrap().stop().unwrap();
+        PROFILER.lock().unwrap().stop().unwrap();
+        HEAP_PROFILER.lock().unwrap().stop().unwrap();
         if let Ok(path) = std::env::current_exe() {
             let symbols = path.to_str().unwrap();
             let input = benchmark_dir.join("main.profile");
