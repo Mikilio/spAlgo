@@ -47,6 +47,18 @@ impl From<Vertex> for Link {
     }
 }
 
+impl From<Vertex> for WeakLink {
+    #[inline]
+    fn from(value: Vertex) -> Self {
+        if value == Vertex(0) {
+            None
+        } else {
+            let link = Link::from(value);
+            Some(Rc::downgrade(&link.unwrap()))
+        }
+    }
+}
+
 /// Represents a pairing heap.
 #[derive(Debug)]
 pub struct PairingHeap {
@@ -65,7 +77,7 @@ impl From<Vertex> for PairingHeap {
 }
 
 impl PriorityQueue for PairingHeap {
-    type RefType = Link;
+    type RefType = WeakLink;
 
     type Key = u32;
 
@@ -123,7 +135,7 @@ impl PriorityQueue for PairingHeap {
             next: self.aux.clone(),
         })));
         self.aux = new.clone();
-        new
+        Some(Rc::downgrade(&new.unwrap()))
     }
 }
 
@@ -134,7 +146,7 @@ impl InitDijkstra for PairingHeap {
 impl DecreaseKey for PairingHeap {
     fn decrease_key(&mut self, of: Self::RefType, key: Self::Key) {
         //panics if link is empty
-        let target = of.unwrap();
+        let target = of.unwrap().upgrade().unwrap();
         let parent = target.borrow().parent.clone();
         if target.borrow().id == Vertex(2868) {}
         if let Some(parent) = parent {
@@ -397,5 +409,8 @@ mod tests {
             highest_min = u32::max(highest_min, key);
         }
         assert_eq!(None, dijkstra.pop_min());
+        for (link, _, _) in dijkstra.meta.values() {
+            assert_eq!(None, link.clone().unwrap().upgrade())
+        }
     }
 }
