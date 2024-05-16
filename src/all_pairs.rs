@@ -48,11 +48,12 @@ fn as_u8_slice_mut(v: &mut [u32]) -> &mut [u8] {
 
 /// Convert graph to matrix.
 fn graph2matrix(graph: &NeighborList, row: usize, col: usize) -> Vec<u32> {
-    let mut matrix = vec![0u32; BLOCK_SIZE * BLOCK_SIZE];
+    let mut matrix = vec![u32::MAX; BLOCK_SIZE * BLOCK_SIZE];
     let row_start = row * BLOCK_SIZE;
     let col_start = col * BLOCK_SIZE;
     let col_end = col_start + BLOCK_SIZE;
     for i in 0..BLOCK_SIZE {
+        matrix[i * BLOCK_SIZE + i] = 0;
         for e in graph[row_start + i].iter() {
             let j = usize::from(e.to);
             if j < col_end && col_start <= j {

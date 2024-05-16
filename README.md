@@ -23,6 +23,7 @@ nix-env -if https://install.devenv.sh/latest
 - `pull-data <region>` downloads graph data for specific region.
 - `prepare-tests` prepare test by generating result to compare by.
 - `cargo test --release` run all tests.
+- `cargo install --version 0.11.0 iai-callgrind-runner` to install the callgrind runner
 - `cargo bench` run all benchmarks. 
 - `benchmark-profile` run benchmarks with profiling enabled.
 

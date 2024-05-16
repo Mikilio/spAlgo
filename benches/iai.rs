@@ -1,3 +1,4 @@
+use iai_callgrind::{library_benchmark, library_benchmark_group, main};
 use paste::paste;
 // use rand::{rngs::ThreadRng, thread_rng, Rng};
 use sp_algo::{dijkstra::*, dimacs::*, implicit_heaps::*, pairing_heap::*};
@@ -53,107 +54,46 @@ where
     sssp(queue, graph);
 }
 
-macro_rules! control {
-    ($region:literal) => {
-        paste! {
-            #[inline]
-            fn [<control_ $region:lower>]() {
-                let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", $region))).into();
-                let size = n + 1;
-                let _graph: NeighborList = preprocess_graph($region, size);
-            }
-        }
-    };
+#[inline]
+fn setup(region: &str) -> (NeighborList, usize) {
+    let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", region))).into();
+    let size = n + 1;
+    let graph: NeighborList = preprocess_graph(region, size);
+    (graph, size)
 }
+
 macro_rules! run {
-    ($region:literal, $Q:ident) => {
+    ($Q:ident) => {
         paste! {
-            #[inline]
-            fn [<run_ $region:lower _ $Q:lower>]() {
-                let n: usize = load_max_vertex(Path::new(&format!("./data/{}.co", $region))).into();
-                let size = n + 1;
-                let graph: NeighborList = preprocess_graph($region, size);
+            #[library_benchmark]
+            #[bench::in_ny(setup("NY"))]
+            #[bench::in_ne(setup("NE"))]
+            #[bench::in_e(setup("E"))]
+            #[bench::in_usa(setup("USA"))]
+            fn [<run_ $Q:lower>](input: (NeighborList, usize))  {
+                let (graph, size) = input;
                 benchmark::<$Q>(size, &graph);
             }
         }
     };
 }
 
-control!("NY");
-run!("NY", BinaryHeap);
-run!("NY", PentaryHeap);
-run!("NY", OctaryHeap);
-run!("NY", HexadecimaryHeap);
-run!("NY", BinaryHeapSimple);
-run!("NY", PentaryHeapSimple);
-run!("NY", OctaryHeapSimple);
-run!("NY", HexadecimaryHeapSimple);
+run!(BinaryHeap);
+run!(PentaryHeap);
+run!(OctaryHeap);
+run!(HexadecimaryHeap);
+run!(BinaryHeapSimple);
+run!(PentaryHeapSimple);
+run!(OctaryHeapSimple);
+run!(HexadecimaryHeapSimple);
+run!(PairingHeap);
 
-control!("NE");
-run!("NE", BinaryHeap);
-run!("NE", PentaryHeap);
-run!("NE", OctaryHeap);
-run!("NE", HexadecimaryHeap);
-run!("NE", BinaryHeapSimple);
-run!("NE", PentaryHeapSimple);
-run!("NE", OctaryHeapSimple);
-run!("NE", HexadecimaryHeapSimple);
-
-control!("E");
-run!("E", BinaryHeap);
-run!("E", PentaryHeap);
-run!("E", OctaryHeap);
-run!("E", HexadecimaryHeap);
-run!("E", BinaryHeapSimple);
-run!("E", PentaryHeapSimple);
-run!("E", OctaryHeapSimple);
-run!("E", HexadecimaryHeapSimple);
-
-control!("USA");
-run!("USA", BinaryHeap);
-run!("USA", PentaryHeap);
-run!("USA", OctaryHeap);
-run!("USA", HexadecimaryHeap);
-run!("USA", BinaryHeapSimple);
-run!("USA", PentaryHeapSimple);
-run!("USA", OctaryHeapSimple);
-run!("USA", HexadecimaryHeapSimple);
-
-iai::main!(
-    control_ny,
-    control_ne,
-    control_e,
-    control_usa,
-    run_ny_binaryheap,
-    run_ny_pentaryheap,
-    run_ny_octaryheap,
-    run_ny_hexadecimaryheap,
-    run_ny_binaryheapsimple,
-    run_ny_pentaryheapsimple,
-    run_ny_octaryheapsimple,
-    run_ny_hexadecimaryheapsimple,
-    run_ne_binaryheap,
-    run_ne_pentaryheap,
-    run_ne_octaryheap,
-    run_ne_hexadecimaryheap,
-    run_ne_binaryheapsimple,
-    run_ne_pentaryheapsimple,
-    run_ne_octaryheapsimple,
-    run_ne_hexadecimaryheapsimple,
-    run_e_binaryheap,
-    run_e_pentaryheap,
-    run_e_octaryheap,
-    run_e_hexadecimaryheap,
-    run_e_binaryheapsimple,
-    run_e_pentaryheapsimple,
-    run_e_octaryheapsimple,
-    run_e_hexadecimaryheapsimple,
-    run_usa_binaryheap,
-    run_usa_pentaryheap,
-    run_usa_octaryheap,
-    run_usa_hexadecimaryheap,
-    run_usa_binaryheapsimple,
-    run_usa_pentaryheapsimple,
-    run_usa_octaryheapsimple,
-    run_usa_hexadecimaryheapsimple,
+library_benchmark_group!(
+    name = sssp;
+    compare_by_id = true;
+    benchmarks = run_binaryheap, run_pentaryheap, run_octaryheap, run_hexadecimaryheap,
+    run_binaryheapsimple, run_pentaryheapsimple, run_octaryheapsimple,
+    run_hexadecimaryheapsimple,
 );
+
+main!(library_benchmark_groups = sssp);

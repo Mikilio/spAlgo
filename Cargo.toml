@@ -16,7 +16,7 @@ transpose = "0.2.3"
 
 [dev-dependencies]
 criterion = { version = "0.4", features = ["html_reports"] }
-iai = "0.1"
+iai-callgrind = "0.11.0"
 gperftools = { version = "0.2.0", features = ["heap"] } 
 paste = "1.0.15"
 rand = "0.8.4"
@@ -29,6 +29,7 @@ harness = false
 
 [[bench]]
 name = "iai"
+debug = true
 harness = false
 
 [profile.test]
